@@ -39,3 +39,25 @@ jobs:
             licenses/nlohmann-json-MIT.txt
             src/platform/dx12/LICENSE
           if-no-files-found: error
+
+  red4ext-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure safe RED4ext host
+        run: cmake -S . -B build-red4ext -A x64 -DNCREC_BUILD_PLUGIN=OFF -DNCREC_BUILD_RED4EXT=ON
+      - name: Build RED4ext DLL
+        run: cmake --build build-red4ext --config Release --target NCREC_RED4ext
+      - name: Run core and workspace tests
+        run: |
+          cmake --build build-red4ext --config Release --target ncrec_core_tests
+          ctest --test-dir build-red4ext -C Release --output-on-failure
+      - name: Package loader-only DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: NCREC-RED4ext-bootstrap-Windows-x64
+          path: |
+            build-red4ext/red4ext/plugins/NCREC/Release/NCREC.dll
+            LICENSE
+            licenses/RED4ext-SDK-MIT.txt
+          if-no-files-found: error
