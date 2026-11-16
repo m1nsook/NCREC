@@ -187,6 +187,9 @@ struct EditorState {
     bool focusConsole{};
     bool scrollConsole{true};
     float uiScale{1.0f};
+    double newKeyframeTime{0.0};
+    double nudgeStep{1.0};
+    std::string cameraMessage;
     UINT activeKey{};
     UINT candidateKey{};
     std::string bindingMessage;
@@ -408,41 +411,102 @@ struct EditorState {
     }
 
     void drawTimeline() {
-        sectionHeading("Camera timeline", "A preview workspace until the in-game camera adapter is ready.");
-        ImGui::Dummy(ImVec2(0, 8 * uiScale));
-        ImGui::BeginChild("TimelineControls", ImVec2(0, 140 * uiScale), ImGuiChildFlags_Borders);
-        ImGui::TextColored(kMuted, "SHOT 001  /  PREVIEW MODE");
-        if (accentButton("Load demo path")) execute("path demo");
-        ImGui::SameLine();
-        if (ImGui::Button(session.playing() ? "Pause" : "Play")) {
-            execute(session.playing() ? "path pause" : "path play");
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Clear")) execute("path clear");
-        float time = static_cast<float>(session.cursorSeconds());
-        const float duration = static_cast<float>(session.path().durationSeconds());
-        if (ImGui::SliderFloat("Timeline (seconds)", &time,
-                               0.0f, std::max(duration, .01f), "%.3f")) {
-            session.seek(time);
+        sectionHeading("Camera timeline", "Build and preview camera shots before live engine integration.");
+        ImGui::TextColored(kAccent,
+            "VIRTUAL CAMERA  |  No Cyberpunk camera read/write is enabled yet.");
+        ImGui::Dummy(ImVec2(0, 5 * uiScale));
+        if (ImGui::BeginChild("TimelineControls", ImVec2(0, 136 * uiScale), ImGuiChildFlags_Borders)) {
+            if (accentButton("Load demo")) {
+                execute("path demo");
+                newKeyframeTime = 5.0;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(session.playing() ? "Pause preview" : "Play preview")) {
+                execute(session.playing() ? "path pause" : "path play");
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Clear shot")) execute("path clear");
+
+            float time = static_cast<float>(session.cursorSeconds());
+            const float duration = static_cast<float>(session.path().durationSeconds());
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::SliderFloat("##TimelineTime", &time, 0.0f,
+                                   std::max(duration, .01f), "Timeline  %.3f s")) {
+                session.seek(time);
+            }
+            ImGui::TextColored(kMuted, "%zu points  /  %.3f seconds",
+                session.path().size(), duration);
         }
         ImGui::EndChild();
 
-        ImGui::Dummy(ImVec2(0, 10 * uiScale));
-        ImGui::BeginChild("ShotReadout", ImVec2(0, 150 * uiScale), ImGuiChildFlags_Borders);
-        ImGui::TextColored(kMuted, "CAMERA DATA");
-        if (g_fontMono) ImGui::PushFont(g_fontMono);
-        ImGui::Text("%zu keyframes    %.3f s    %s",
-            session.path().size(), session.path().durationSeconds(),
-            session.playing() ? "PLAYING" : "PAUSED");
-        if (const auto sample = session.path().evaluate(session.cursorSeconds())) {
-            ImGui::Text("X %.3f   Y %.3f   Z %.3f   FOV %.1f",
-                sample->position.x, sample->position.y,
-                sample->position.z, sample->fovDegrees);
+        ImGui::Dummy(ImVec2(0, 7 * uiScale));
+        if (ImGui::BeginChild("CameraPreview", ImVec2(0, 212 * uiScale), ImGuiChildFlags_Borders)) {
+            ImGui::TextColored(kAccent, "VIRTUAL CAMERA POSE");
+            ImGui::TextColored(kMuted, "Edit coordinates to prepare a shot. Not affecting the game.");
+            CameraState pose = session.rig().pose();
+            bool changed = false;
+            ImGui::SetNextItemWidth(-1);
+            changed |= ImGui::InputDouble("X##pose", &pose.position.x, 0.1, 1.0, "%.3f");
+            ImGui::SetNextItemWidth(-1);
+            changed |= ImGui::InputDouble("Y##pose", &pose.position.y, 0.1, 1.0, "%.3f");
+            ImGui::SetNextItemWidth(-1);
+            changed |= ImGui::InputDouble("Z##pose", &pose.position.z, 0.1, 1.0, "%.3f");
+            float fov = static_cast<float>(pose.fovDegrees);
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::SliderFloat("FOV##pose", &fov, 5.0f, 120.0f, "%.1f deg")) {
+                pose.fovDegrees = fov;
+                changed = true;
+            }
+            if (changed && !session.setCameraPose(pose)) {
+                cameraMessage = "Invalid pose: use finite coordinates and FOV from 0-180.";
+            }
         }
-        if (g_fontMono) ImGui::PopFont();
         ImGui::EndChild();
-        ImGui::TextColored(kAccent,
-            "The game camera is NOT connected yet. This panel only previews path mathematics.");
+
+        ImGui::Dummy(ImVec2(0, 7 * uiScale));
+        if (ImGui::BeginChild("KeyframeEditor", ImVec2(0, 235 * uiScale), ImGuiChildFlags_Borders)) {
+            ImGui::TextColored(kAccent, "KEYFRAMES");
+            ImGui::SetNextItemWidth(175 * uiScale);
+            ImGui::InputDouble("Time (seconds)", &newKeyframeTime, 0.25, 1.0, "%.3f");
+            if (accentButton("Add virtual pose")) {
+                if (session.addKeyframe(newKeyframeTime)) {
+                    cameraMessage = "Keyframe captured. Set another time to add the next.";
+                } else {
+                    cameraMessage = "Could not add: time must be nonnegative and unique.";
+                }
+            }
+            ImGui::Separator();
+            if (session.path().size() == 0) {
+                ImGui::TextColored(kMuted, "No points yet. Set your pose and click Add.");
+            }
+            // Copy the entry before removing it; erase invalidates the path vector.
+            for (std::size_t i = 0; i < session.path().size(); ++i) {
+                const Keyframe frame = session.path().keyframes()[i];
+                ImGui::PushID(static_cast<int>(i));
+                ImGui::Text("%zu   %.3f s", i, frame.timeSeconds);
+                ImGui::SameLine(220 * uiScale);
+                if (ImGui::SmallButton("Edit pose")) {
+                    (void)session.setCameraPose(frame.camera);
+                    newKeyframeTime = frame.timeSeconds;
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Delete")) {
+                    (void)session.removeKeyframe(i);
+                    cameraMessage = "Keyframe removed.";
+                    ImGui::PopID();
+                    break;
+                }
+                ImGui::PopID();
+            }
+        }
+        ImGui::EndChild();
+
+        if (!cameraMessage.empty()) ImGui::TextColored(kMuted, "%s", cameraMessage.c_str());
+        if (g_fontMono) ImGui::PushFont(g_fontMono);
+        const CameraState& pose = session.rig().pose();
+        ImGui::Text("Preview XYZ %.2f / %.2f / %.2f   FOV %.1f",
+            pose.position.x, pose.position.y, pose.position.z, pose.fovDegrees);
+        if (g_fontMono) ImGui::PopFont();
     }
 
     void drawConsole() {
