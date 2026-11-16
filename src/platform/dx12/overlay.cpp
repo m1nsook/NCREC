@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <array>
 #include <atomic>
+#include <algorithm>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -39,7 +40,6 @@ struct state {
     UINT                        buffer_count = 0;
     DXGI_FORMAT                 format = DXGI_FORMAT_R8G8B8A8_UNORM;
     bool                        initialized = false;
-    bool                        show_ui = false;
     bool                        is_resizing = false;
 };
 
@@ -52,10 +52,21 @@ using present_t                     = HRESULT(STDMETHODCALLTYPE*)(IDXGISwapChain
 using resize_buffers_t              = HRESULT(STDMETHODCALLTYPE*)(IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT);
 
 state                    g_state;
+std::atomic_bool        g_visible{false};
+bool                    g_previous_visibility = false;
+RECT                    g_previous_clip{};
+bool                    g_have_previous_clip = false;
+bool                    g_raw_cursor = false;
+bool                    g_cursor_initialized = false;
+ImVec2                  g_cursor_pos{};
+std::atomic<long>       g_delta_x{0};
+std::atomic<long>       g_delta_y{0};
+std::atomic_bool        g_saw_raw_motion{false};
+std::atomic<unsigned>   g_raw_buttons{0};
 render_callback_t        g_render_callback = nullptr;
 font_config_callback_t   g_font_config_callback = nullptr;
 HMODULE                  g_dxgi_handle = nullptr;
-UINT                     g_toggle_key = VK_OEM_MINUS;
+std::atomic<UINT>       g_toggle_key{VK_OEM_MINUS};
 // Key capture is delivered from the game's WndProc to the render/UI thread.
 // No additional Windows window or global hotkey registration is needed.
 std::atomic_bool        g_capture_key{false};
@@ -162,6 +173,86 @@ void cleanup_partial_init() {
     if (g_state.device) { g_state.device->Release(); g_state.device = nullptr; }
 }
 
+void read_raw_cursor(LPARAM handle) {
+    RAWINPUT raw{};
+    UINT size = sizeof(raw);
+    const UINT count = GetRawInputData(reinterpret_cast<HRAWINPUT>(handle),
+        RID_INPUT, &raw, &size, sizeof(RAWINPUTHEADER));
+    if (count == static_cast<UINT>(-1) || count < sizeof(RAWINPUTHEADER)
+        || raw.header.dwType != RIM_TYPEMOUSE) return;
+
+    const RAWMOUSE& m = raw.data.mouse;
+    if (!(m.usFlags & MOUSE_MOVE_ABSOLUTE)) {
+        g_delta_x.fetch_add(m.lLastX, std::memory_order_relaxed);
+        g_delta_y.fetch_add(m.lLastY, std::memory_order_relaxed);
+        if (m.lLastX || m.lLastY)
+            g_saw_raw_motion.store(true, std::memory_order_release);
+    }
+    unsigned buttons = 0;
+    if (m.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN)   buttons |= 1u;
+    if (m.usButtonFlags & RI_MOUSE_LEFT_BUTTON_UP)     buttons |= 2u;
+    if (m.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN)  buttons |= 4u;
+    if (m.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP)    buttons |= 8u;
+    if (m.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN) buttons |= 16u;
+    if (m.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_UP)   buttons |= 32u;
+    if (buttons) g_raw_buttons.fetch_or(buttons, std::memory_order_release);
+}
+
+void synchronize_cursor_clip() {
+    const bool visible = g_visible.load(std::memory_order_acquire);
+    if (visible != g_previous_visibility) {
+        g_raw_cursor = false;
+        g_cursor_initialized = false;
+        g_delta_x.exchange(0, std::memory_order_acq_rel);
+        g_delta_y.exchange(0, std::memory_order_acq_rel);
+        g_raw_buttons.exchange(0, std::memory_order_acq_rel);
+        g_saw_raw_motion.store(false, std::memory_order_release);
+
+        if (visible) {
+            g_have_previous_clip = false;
+            if (GetForegroundWindow() == g_state.hwnd)
+                g_have_previous_clip = GetClipCursor(&g_previous_clip) != 0;
+        } else {
+            if (g_have_previous_clip && GetForegroundWindow() == g_state.hwnd)
+                ClipCursor(&g_previous_clip);
+            g_have_previous_clip = false;
+        }
+        g_previous_visibility = visible;
+    }
+    if (visible && GetForegroundWindow() == g_state.hwnd)
+        ClipCursor(nullptr); // Some game screens reapply clipping each frame.
+}
+
+void update_imgui_raw_cursor() {
+    ImGuiIO& io = ImGui::GetIO();
+    if (!g_cursor_initialized) {
+        POINT p{};
+        if (GetCursorPos(&p) && ScreenToClient(g_state.hwnd, &p))
+            g_cursor_pos = ImVec2(static_cast<float>(p.x), static_cast<float>(p.y));
+        else
+            g_cursor_pos = ImVec2(io.DisplaySize.x * .5f, io.DisplaySize.y * .5f);
+        g_cursor_initialized = true;
+    }
+
+    const long dx = g_delta_x.exchange(0, std::memory_order_acq_rel);
+    const long dy = g_delta_y.exchange(0, std::memory_order_acq_rel);
+    if (g_saw_raw_motion.exchange(false, std::memory_order_acq_rel))
+        g_raw_cursor = true;
+
+    if (g_raw_cursor && io.DisplaySize.x > 0 && io.DisplaySize.y > 0) {
+        g_cursor_pos.x = std::clamp(g_cursor_pos.x + static_cast<float>(dx),
+                                   0.0f, io.DisplaySize.x - 1.0f);
+        g_cursor_pos.y = std::clamp(g_cursor_pos.y + static_cast<float>(dy),
+                                   0.0f, io.DisplaySize.y - 1.0f);
+        io.AddMousePosEvent(g_cursor_pos.x, g_cursor_pos.y);
+    }
+    const unsigned buttons = g_raw_buttons.exchange(0, std::memory_order_acq_rel);
+    for (int i = 0; i < 3; ++i) {
+        if (buttons & (1u << (i * 2))) io.AddMouseButtonEvent(i, true);
+        if (buttons & (1u << (i * 2 + 1))) io.AddMouseButtonEvent(i, false);
+    }
+}
+
 LRESULT CALLBACK hook_wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     // The game remains the owner of its HWND; there is no secondary window
     // and therefore no foreground-loss auto-hide. Toggle only when the game's
@@ -172,10 +263,10 @@ LRESULT CALLBACK hook_wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
         return CallWindowProcW(g_orig_wnd_proc, hWnd, msg, wParam, lParam);
 
     // Emergency release even during first-run key capture.
-    if (g_state.show_ui && msg == WM_KEYUP && wParam == VK_ESCAPE) {
+    if (g_visible && msg == WM_KEYUP && wParam == VK_ESCAPE) {
         g_capture_key.store(false, std::memory_order_release);
         g_captured_key.store(0, std::memory_order_release);
-        g_state.show_ui = false;
+        g_visible.store(false, std::memory_order_release);
         return 0;
     }
     if (msg == WM_KEYUP) {
@@ -193,11 +284,16 @@ LRESULT CALLBACK hook_wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
             return 0;
         }
         if (g_toggle_key != 0 && wParam == g_toggle_key) {
-            g_state.show_ui = !g_state.show_ui;
+            g_visible.store(!g_visible.load(std::memory_order_acquire), std::memory_order_release);
             return 0;
         }
     }
-    if (g_state.show_ui && g_state.initialized) {
+    if (g_visible.load(std::memory_order_acquire) && g_state.initialized) {
+        if (msg == WM_INPUT) {
+            read_raw_cursor(lParam);
+            // DefWindowProc performs RIM_INPUT cleanup, unlike returning 0.
+            return DefWindowProcW(hWnd, msg, wParam, lParam);
+        }
         const bool consumed = ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam) != 0;
         switch (msg) {
             case WM_MOUSEMOVE:
@@ -223,6 +319,7 @@ HRESULT STDMETHODCALLTYPE hook_present(IDXGISwapChain3* self, UINT SyncInterval,
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
         io.MouseDrawCursor = true;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
         if (g_font_config_callback)
             g_font_config_callback();
@@ -310,11 +407,13 @@ HRESULT STDMETHODCALLTYPE hook_present(IDXGISwapChain3* self, UINT SyncInterval,
         LOG(" --- DX12 ImGui initialized successfully");
     }
 
+    synchronize_cursor_clip();
+
     // Skip rendering during resize to avoid race conditions
     if (g_state.is_resizing)
         return g_orig_present(self, SyncInterval, Flags);
 
-    if (g_render_callback && g_state.command_queue && g_state.initialized && g_state.show_ui) {
+    if (g_render_callback && g_state.command_queue && g_state.initialized && g_visible) {
         UINT idx = self->GetCurrentBackBufferIndex();
         if (idx >= g_state.buffer_count)
             return g_orig_present(self, SyncInterval, Flags);
@@ -325,6 +424,7 @@ HRESULT STDMETHODCALLTYPE hook_present(IDXGISwapChain3* self, UINT SyncInterval,
 
         ImGui_ImplDX12_NewFrame();
         ImGui_ImplWin32_NewFrame();
+        update_imgui_raw_cursor();
         ImGui::NewFrame();
 
         g_render_callback(self, SyncInterval, Flags);
@@ -545,7 +645,7 @@ void set_font_config_callback(font_config_callback_t callback) {
 }
 
 void set_toggle_key(UINT vk_code) {
-    g_toggle_key = vk_code;
+    g_toggle_key.store(vk_code, std::memory_order_release);
 }
 
 void begin_key_capture() {
@@ -563,11 +663,11 @@ UINT take_captured_key() {
 }
 
 void set_visible(bool visible) {
-    g_state.show_ui = visible;
+    g_visible.store(visible, std::memory_order_release);
 }
 
 bool is_visible() {
-    return g_state.show_ui;
+    return g_visible.load(std::memory_order_acquire);
 }
 
 void enable_logging(const char* path) {
