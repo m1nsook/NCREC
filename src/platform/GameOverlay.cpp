@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cwchar>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -23,9 +24,8 @@ namespace {
 
 constexpr int kInterResourceId = 101;
 constexpr int kMonoResourceId = 102;
-constexpr ImVec4 kAccent{1.0f, 0.80f, 0.09f, 1.0f};
-constexpr ImVec4 kMuted{0.60f, 0.63f, 0.69f, 1.0f};
-constexpr ImVec4 kGood{0.45f, 0.82f, 0.58f, 1.0f};
+const ImVec4 kAccent{1.0f, 0.80f, 0.09f, 1.0f};
+const ImVec4 kMuted{0.60f, 0.63f, 0.69f, 1.0f};
 
 enum class Page { Timeline, Console, Settings };
 
