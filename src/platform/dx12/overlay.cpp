@@ -10,6 +10,7 @@
 #include <backends/imgui_impl_win32.h>
 #include <filesystem>
 #include <array>
+#include <atomic>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -55,6 +56,10 @@ render_callback_t        g_render_callback = nullptr;
 font_config_callback_t   g_font_config_callback = nullptr;
 HMODULE                  g_dxgi_handle = nullptr;
 UINT                     g_toggle_key = VK_OEM_MINUS;
+// Key capture is delivered from the game's WndProc to the render/UI thread.
+// No additional Windows window or global hotkey registration is needed.
+std::atomic_bool        g_capture_key{false};
+std::atomic<UINT>       g_captured_key{0};
 
 create_dxgi_factory_t         g_orig_create_dxgi_factory = nullptr;
 create_dxgi_factory1_t        g_orig_create_dxgi_factory1 = nullptr;
@@ -161,9 +166,24 @@ LRESULT CALLBACK hook_wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
     // The game remains the owner of its HWND; there is no secondary window
     // and therefore no foreground-loss auto-hide. Toggle only when the game's
     // window actually receives the key-up event.
-    if (msg == WM_KEYUP && wParam == g_toggle_key) {
-        g_state.show_ui = !g_state.show_ui;
-        return 0;
+    if (msg == WM_KEYUP || msg == WM_SYSKEYUP) {
+        if (g_capture_key.load(std::memory_order_acquire)) {
+            // Only the first released key wins; do not toggle the UI in
+            // binding mode. Capture remains strictly a single keyboard key.
+            const UINT key = static_cast<UINT>(wParam);
+            if (key != VK_SHIFT && key != VK_CONTROL && key != VK_MENU &&
+                key != VK_LSHIFT && key != VK_RSHIFT &&
+                key != VK_LCONTROL && key != VK_RCONTROL &&
+                key != VK_LMENU && key != VK_RMENU) {
+                g_captured_key.store(key, std::memory_order_release);
+                g_capture_key.store(false, std::memory_order_release);
+            }
+            return 0;
+        }
+        if (g_toggle_key != 0 && wParam == g_toggle_key) {
+            g_state.show_ui = !g_state.show_ui;
+            return 0;
+        }
     }
     if (g_state.show_ui && g_state.initialized) {
         const bool consumed = ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam) != 0;
@@ -515,6 +535,20 @@ void set_font_config_callback(font_config_callback_t callback) {
 
 void set_toggle_key(UINT vk_code) {
     g_toggle_key = vk_code;
+}
+
+void begin_key_capture() {
+    g_captured_key.store(0, std::memory_order_release);
+    g_capture_key.store(true, std::memory_order_release);
+}
+
+void end_key_capture() {
+    g_capture_key.store(false, std::memory_order_release);
+    g_captured_key.store(0, std::memory_order_release);
+}
+
+UINT take_captured_key() {
+    return g_captured_key.exchange(0, std::memory_order_acq_rel);
 }
 
 void set_visible(bool visible) {
