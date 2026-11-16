@@ -52,9 +52,14 @@ ctest --test-dir build --output-on-failure
    not already have a compatible ASI loader. CET itself is **not required**.
    Avoid overwriting an existing loader without checking your setup.
 3. Copy `NCREC.asi` to `<Cyberpunk 2077>/bin/x64/plugins/NCREC.asi`.
-4. Launch Cyberpunk. Toggle the editor with **Ctrl+Shift+F10**, or open the
-   editor focused on the console with **Ctrl+F10**. The hotkeys may conflict
-   with other software; rebinding is not implemented yet.
+4. Launch Cyberpunk. Press the **grave / tilde key** (usually immediately
+   left of `1`) **once** to open/close NCREC. No Ctrl, Shift, Alt or Fn.
+   In the editor, use **Focus console** to enter commands, **Esc** to close,
+   or click **Close editor**. If CET or another mod already uses the grave key,
+   the prototype tries **Insert** as a fallback.
+   Choose a different **single key** under `Toggle key (one press)` in the
+   NCREC window. Your choice is saved in `bin/x64/plugins/NCREC.ini`.
+   Some keys, such as Caps Lock, may conflict with in-game controls.
 5. Check `bin/x64/plugins/NCREC.log` for bootstrap logs. In the console,
    run `path demo` and `path play` to preview **math only**, not the camera.
 

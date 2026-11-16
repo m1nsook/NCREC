@@ -18,8 +18,12 @@ Dear ImGui context** from inside the ASI plugin. It is NOT a DirectX 12
 Present hook and does not render into Cyberpunk's swapchain. This minimizes
 initial render-hook conflicts but is only intended for windowed/borderless
 gameplay. It must not be advertised as a full exclusive-fullscreen overlay.
-The window is hidden unless toggled with Ctrl+Shift+F10; Ctrl+F10 opens
-the same window with the console focused.
+The window uses a **single-key**, user-selectable toggle (default: grave /
+tilde, with Insert fallback if unavailable). It is configurable in the UI,
+persisted in `NCREC.ini` and has no modifier-key combinations. Esc closes the
+editor, and its console can be focused with a button. Hotkey conflicts are
+possible with other game mods; a failed registration opens the editor for
+reconfiguration.
 
 The UI is deliberately independent of CET. Current playback only evaluates
 sample data: **it does not manipulate the game's camera**.

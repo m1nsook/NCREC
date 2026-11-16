@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 using Microsoft::WRL::ComPtr;
@@ -28,8 +29,29 @@ namespace ncrec::platform {
 namespace {
 
 constexpr int kToggleEditor = 1;
-constexpr int kOpenConsole = 2;
 constexpr wchar_t kWindowClass[] = L"NCREC.Prototype.Editor";
+
+struct HotkeyChoice {
+    const char* label;
+    const wchar_t* setting;
+    UINT virtualKey;
+};
+
+// Every option is a single key, with no modifiers. The initial key is
+// deliberately close to the left hand. Users can choose a different one
+// if CET or another mod already uses it.
+constexpr std::array<HotkeyChoice, 10> kHotkeys{{
+    {"Grave / tilde (left of 1)", L"Grave", VK_OEM_3},
+    {"Insert", L"Insert", VK_INSERT},
+    {"Home", L"Home", VK_HOME},
+    {"End", L"End", VK_END},
+    {"F6", L"F6", VK_F6},
+    {"F7", L"F7", VK_F7},
+    {"F8", L"F8", VK_F8},
+    {"F9", L"F9", VK_F9},
+    {"Backspace", L"Backspace", VK_BACK},
+    {"Caps Lock (may conflict with scanning)", L"CapsLock", VK_CAPITAL},
+}};
 
 std::filesystem::path moduleDirectory(HMODULE module) {
     std::array<wchar_t, 32768> buffer{};
@@ -45,6 +67,7 @@ class OverlayWindow {
 public:
     explicit OverlayWindow(HMODULE module)
         : module_(module),
+          configPath_((moduleDirectory(module) / L"NCREC.ini").wstring()),
           logfile_(moduleDirectory(module) / L"NCREC.log", std::ios::app) {}
 
     [[nodiscard]] bool initialize() {
@@ -103,21 +126,30 @@ public:
         }
         imguiDxReady_ = true;
 
-        editorHotkeyRegistered_ = RegisterHotKey(
-            window_, kToggleEditor, MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, VK_F10) != 0;
-        consoleHotkeyRegistered_ = RegisterHotKey(
-            window_, kOpenConsole, MOD_CONTROL | MOD_NOREPEAT, VK_F10) != 0;
-
-        if (!editorHotkeyRegistered_) {
-            log("WARNING: Ctrl+Shift+F10 could not be registered (another app may own it).");
-            show(true);
+        wchar_t requestedKey[64]{};
+        GetPrivateProfileStringW(L"Hotkeys", L"Toggle", L"Grave",
+            requestedKey, static_cast<DWORD>(std::size(requestedKey)), configPath_.c_str());
+        int requestedIndex = 0;
+        for (int i = 0; i < static_cast<int>(kHotkeys.size()); ++i) {
+            if (std::wstring_view(requestedKey) == kHotkeys[i].setting) {
+                requestedIndex = i;
+                break;
+            }
         }
-        if (!consoleHotkeyRegistered_) {
-            log("WARNING: Ctrl+F10 could not be registered.");
+
+        if (!switchHotkey(requestedIndex, false)) {
+            // Try Insert when a CET/other binding already owns the grave key.
+            if (requestedIndex == 1 || !switchHotkey(1, false)) {
+                log("WARNING: No single-key toggle could be registered. Editor opens automatically.");
+                show(true);
+            } else {
+                log("WARNING: Preferred key unavailable; temporarily using Insert.");
+            }
         }
 
         log("NCREC ASI loaded. Game camera adapter is NOT implemented.");
-        log("Ctrl+Shift+F10: editor; Ctrl+F10: console. No CET required.");
+        log("Press your configured single toggle key to open/close the editor.");
+        log("The console is inside the editor; no additional shortcut required.");
         log("Type 'path demo', then 'path play' to preview the timeline math.");
         return true;
     }
@@ -162,9 +194,6 @@ public:
         if (editorHotkeyRegistered_) {
             UnregisterHotKey(window_, kToggleEditor);
         }
-        if (consoleHotkeyRegistered_) {
-            UnregisterHotKey(window_, kOpenConsole);
-        }
         if (imguiDxReady_) {
             ImGui_ImplDX11_Shutdown();
         }
@@ -188,16 +217,14 @@ public:
     }
 
     LRESULT handle(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
-        if (message == WM_HOTKEY) {
-            if (wparam == kToggleEditor && (visible_ || foregroundBelongsToThisProcess())) {
-                show(!visible_);
-                return 0;
-            }
-            if (wparam == kOpenConsole && (visible_ || foregroundBelongsToThisProcess())) {
-                show(true);
-                focusConsole_ = true;
-                return 0;
-            }
+        if (message == WM_HOTKEY && wparam == kToggleEditor
+            && (visible_ || foregroundBelongsToThisProcess())) {
+            show(!visible_);
+            return 0;
+        }
+        if (message == WM_KEYDOWN && wparam == VK_ESCAPE && visible_) {
+            show(false);
+            return 0;
         }
         if (contextCreated_ && ImGui_ImplWin32_WndProcHandler(window, message, wparam, lparam)) {
             return 1;
@@ -270,6 +297,37 @@ private:
         }
     }
 
+    [[nodiscard]] bool switchHotkey(int index, bool persist) {
+        if (index < 0 || index >= static_cast<int>(kHotkeys.size())) {
+            return false;
+        }
+
+        const int previousIndex = selectedHotkey_;
+        if (editorHotkeyRegistered_) {
+            UnregisterHotKey(window_, kToggleEditor);
+            editorHotkeyRegistered_ = false;
+        }
+
+        if (!RegisterHotKey(window_, kToggleEditor, MOD_NOREPEAT,
+                            kHotkeys[index].virtualKey)) {
+            if (previousIndex >= 0 && previousIndex != index) {
+                editorHotkeyRegistered_ = RegisterHotKey(
+                    window_, kToggleEditor, MOD_NOREPEAT,
+                    kHotkeys[previousIndex].virtualKey) != 0;
+            }
+            log("WARNING: This key is already registered or unavailable.");
+            return false;
+        }
+
+        editorHotkeyRegistered_ = true;
+        selectedHotkey_ = index;
+        if (persist && !WritePrivateProfileStringW(
+                L"Hotkeys", L"Toggle", kHotkeys[index].setting, configPath_.c_str())) {
+            log("WARNING: Unable to save selected key to NCREC.ini.");
+        }
+        return true;
+    }
+
     void log(std::string message) {
         if (messages_.size() >= 500) {
             messages_.erase(messages_.begin());
@@ -338,6 +396,24 @@ private:
         ImGui::TextColored(ImVec4(1.0f, 0.83f, 0.05f, 1.0f), "NCREC  /  v0.1.0");
         ImGui::SameLine();
         ImGui::TextDisabled("Native ASI + independent ImGui editor");
+        if (ImGui::Button("Close editor")) {
+            show(false);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Focus console")) {
+            focusConsole_ = true;
+        }
+
+        int selected = std::max(selectedHotkey_, 0);
+        if (ImGui::BeginCombo("Toggle key (one press)", kHotkeys[selected].label)) {
+            for (int i = 0; i < static_cast<int>(kHotkeys.size()); ++i) {
+                if (ImGui::Selectable(kHotkeys[i].label, i == selected)) {
+                    switchHotkey(i, true);
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::TextDisabled("Shortcut settings are saved in NCREC.ini; Esc closes the editor.");
         ImGui::Separator();
         ImGui::TextWrapped(
             "PROTOTYPE: the game camera is not connected. Playback only previews "
@@ -407,6 +483,7 @@ private:
     }
 
     HMODULE module_{};
+    std::wstring configPath_;
     HWND window_{};
     HWND returnFocus_{};
     bool visible_{};
@@ -417,7 +494,7 @@ private:
     bool win32Ready_{};
     bool imguiDxReady_{};
     bool editorHotkeyRegistered_{};
-    bool consoleHotkeyRegistered_{};
+    int selectedHotkey_{-1};
 
     ComPtr<ID3D11Device> device_;
     ComPtr<ID3D11DeviceContext> context_;
