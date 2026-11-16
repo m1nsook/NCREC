@@ -21,8 +21,18 @@ Cinematic camera editor for Cyberpunk 2077, inspired by HLAE's mirv_campath.
 
 - Cross-platform C++20 camera path interpolation: cubic Hermite/linear
   positions, quaternion SLERP, FOV blending.
-- `help`, `status`, `path demo`, `path list`, `path play`, `path pause`,
-  `path seek <seconds>`, `path sample <seconds>` and `path clear`.
+- **Virtual camera rig**: numeric position/FOV editing, camera rotation commands,
+  timed keyframe capture/removal, and scrubbed playback without accessing the
+  live game view.
+- **Camera path projects**: save/load named `*.ncrec.json` files via the
+  Timeline page or `path save <name>` / `path load <name>` commands.
+  Files are saved under `bin/x64/plugins/NCREC/projects/`.
+- `help`, `status`, `camera pose`, `camera pos <x> <y> <z>`,
+  `camera fov <degrees>`, `camera rotate <yaw> <pitch> <roll>`,
+  `path demo`, `path add <seconds>`, `path remove <index>`,
+  `path list`, `path play`, `path pause`, `path seek <seconds>`,
+  `path sample <seconds>`, `path save <name>`, `path load <name>`
+  and `path clear`.
 - Experimental Windows x64 ASI with **actual in-game DX12 ImGui renderer**,
   not an always-on-top secondary Win32 window.
 - On a **fresh installation**, an automatic in-game welcome screen asks
@@ -107,3 +117,15 @@ This behavior is experimental and requires real-game testing.
 If NCREC makes the game unresponsive, remove `NCREC.asi` from
 `bin/x64/plugins/` before launching again. Do not use the prior trapped-input
 build.
+
+## Virtual camera workflow (new experiment)
+
+This build lets you **practice creating camera paths before NCREC is connected
+with Cyberpunk's actual camera**. In Timeline, enter X/Y/Z and FOV, select
+a timestamp (0 for the first point, 3.0 for the next), then click
+**Add virtual pose**. Add more timed points, scrub or play the preview,
+then save the shot. The editor includes **Save / Load Shot** using a simple
+file name such as `intro_pan`. The path is stored as JSON so it can be
+shared with other editors. The game view **will not move** in this version.
+
+For actual camera reads/overrides, see [camera adapter design](docs/camera-adapter.md).

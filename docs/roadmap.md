@@ -13,12 +13,14 @@
 - [ ] Validate input capture and interaction with CET, OBS and ReShade
 - [ ] Validate resize, Alt+Tab, HDR, device reset and render thread handling
 
-## v0.2 — usable camera paths
+## v0.2 — camera path development
 
-- [ ] Version-aware native camera adapter and reliable restore
-- [ ] Capture real camera keyframes
-- [ ] Replay paths in the actual game view
-- [ ] Save/load camera paths and editor project files
+- [x] Portable camera rig math and fail-closed game-camera adapter contract
+- [x] Virtual pose editor with X/Y/Z, FOV and timed keyframe capture/removal
+- [x] JSON save/load of named shots and validation tests
+- [ ] Version-aware native game camera read/override adapter and reliable restore
+- [ ] Capture **real** game camera keyframes
+- [ ] Replay paths in the **actual** game view
 
 ## v0.3 — editor + capture
 
