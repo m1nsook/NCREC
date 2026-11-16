@@ -3,12 +3,35 @@
 # NCREC
 Cinematic camera editor for Cyberpunk 2077, inspired by HLAE's mirv_campath.
 
-> **Experimental DX12 renderer branch.** This build replaces the separate
-> Win32 editor window with an in-game Dear ImGui layer that renders directly
-> into Cyberpunk's DX12 swapchain. **No Cyberpunk camera control yet.**
-> The base DX12 overlay has been reported working in Cyberpunk 2.5.
-> The **new first-launch wizard, settings and embedded fonts still need
-> in-game verification** before this draft branch is considered stable.
+> **Migration in progress:** `feature/red4ext-host` introduces a separate
+> **RED4ext DLL** alongside the existing experimental ASI. The DLL currently
+> logs startup/shutdown **only**; it intentionally does not display the editor,
+> alter input, hook DirectX or control Cyberpunk's camera. The ASI prototype
+> remains available for comparison, but its gameplay input stability is not
+> verified. Do not install both versions simultaneously.
+
+## RED4ext DLL migration (safe bootstrap)
+
+The new native loader target builds `NCREC.dll` for **RED4ext**, rather than
+renaming the existing ASI. It implements RED4ext SDK 1.0's API-v1
+`Supports`, `Query`, and `Main`, uses the RED4ext logger, and does not
+install camera, input or render hooks while game-version support is researched.
+
+```powershell
+cmake -S . -B build-red4ext -A x64 -DNCREC_BUILD_PLUGIN=OFF -DNCREC_BUILD_RED4EXT=ON
+cmake --build build-red4ext --config Release --target NCREC_RED4ext
+ctest --test-dir build-red4ext -C Release --output-on-failure
+```
+
+Install the resulting `NCREC.dll` into
+`Cyberpunk 2077/red4ext/plugins/NCREC/` with a compatible RED4ext loader.
+**Remove or disable the old `NCREC.asi` first.** This initial DLL has no
+overlay and should only produce RED4ext load/unload logs.
+
+The target fullscreen, fixed-panel UI is being rebuilt from your
+`demo.html` layout. Portable layout geometry and tests are in
+`src/editor/WorkspaceLayout.*`. Actual DLL UI/input integration is gated
+on lifecycle and cursor stability. Details: [migration plan](docs/red4ext-migration.md).
 
 ## Goals
 
