@@ -43,6 +43,36 @@ if(NCREC_BUILD_PLUGIN)
     )
     FetchContent_MakeAvailable(imgui minhook)
 
+    # Fonts are fetched at configure time and embedded as Win32 resources.
+    # Users install only NCREC.asi; no Windows font installation is required.
+    # Both font source revisions are immutable and licensed under SIL OFL 1.1.
+    set(NCREC_FONT_DIR "${CMAKE_CURRENT_BINARY_DIR}/fonts")
+    file(MAKE_DIRECTORY "${NCREC_FONT_DIR}")
+    function(ncrec_download_font name url)
+        if(NOT EXISTS "${NCREC_FONT_DIR}/${name}")
+            file(DOWNLOAD "${url}" "${NCREC_FONT_DIR}/${name}"
+                STATUS font_download_status TLS_VERIFY ON)
+            list(GET font_download_status 0 font_result)
+            if(NOT font_result EQUAL 0)
+                message(FATAL_ERROR "Cannot retrieve bundled font ${name}: ${font_download_status}")
+            endif()
+        endif()
+        file(SIZE "${NCREC_FONT_DIR}/${name}" font_size)
+        if(font_size LESS 100000)
+            message(FATAL_ERROR "Font ${name} appears incomplete (${font_size} bytes).")
+        endif()
+    endfunction()
+
+    ncrec_download_font(InterVariable.ttf
+        "https://raw.githubusercontent.com/rsms/inter/353b61b9f4430d5f420d56605a6e7993e0941470/docs/font-files/InterVariable.ttf")
+    ncrec_download_font(JetBrainsMono-Regular.ttf
+        "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/19371302b95d218af43299bce79ddbddd0bc364d/fonts/ttf/JetBrainsMono-Regular.ttf")
+    set(NCREC_INTER_RESOURCE "${NCREC_FONT_DIR}/InterVariable.ttf")
+    set(NCREC_MONO_RESOURCE "${NCREC_FONT_DIR}/JetBrainsMono-Regular.ttf")
+    configure_file(src/platform/Fonts.rc.in
+        "${CMAKE_CURRENT_BINARY_DIR}/NCRECFonts.rc" @ONLY)
+    enable_language(RC)
+
     add_library(ncrec_imgui STATIC
         ${imgui_SOURCE_DIR}/imgui.cpp
         ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -70,6 +100,7 @@ if(NCREC_BUILD_PLUGIN)
     add_library(NCREC SHARED
         src/platform/Plugin.cpp
         src/platform/GameOverlay.cpp
+        "${CMAKE_CURRENT_BINARY_DIR}/NCRECFonts.rc"
     )
     target_link_libraries(NCREC PRIVATE ncrec_core ncrec_dx12_overlay user32 gdi32)
     target_compile_definitions(NCREC PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
