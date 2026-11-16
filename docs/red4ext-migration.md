@@ -20,6 +20,7 @@ out of the game's plugin directory before testing the RED4ext DLL.
 - Implements RED4ext **API v1** `Supports`, `Query` and `Main` exports
   using the pinned 1.0.0 SDK.
 - Sends load/unload diagnostics to the RED4ext logger.
+- Refuses to initialize if the legacy \`NCREC.asi\` is already present in the process.
 - Does not install a DirectX hook, create another window, acquire input or
   access/modify game memory.
 - Deliberately uses `RED4EXT_V1_RUNTIME_VERSION_INDEPENDENT` **only** because

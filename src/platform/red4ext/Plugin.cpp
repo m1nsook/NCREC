@@ -32,6 +32,16 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
 
     switch (reason) {
         case RED4ext::v1::EMainReason::Load:
+            // Fail closed when the legacy ASI has already been loaded.
+            // This protects against installing both NCREC variants at once.
+            if (GetModuleHandleW(L"NCREC.asi") != nullptr) {
+                if (sdk && sdk->logger && sdk->logger->Error) {
+                    sdk->logger->Error(handle,
+                        "NCREC: legacy NCREC.asi is already loaded. "
+                        "Remove the ASI before using the RED4ext DLL.");
+                }
+                return false;
+            }
             if (g_loaded.exchange(true)) return true;
             logInfo(handle, sdk, "NCREC RED4ext host loaded (bootstrap only).");
             logInfo(handle, sdk,
