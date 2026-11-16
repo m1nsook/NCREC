@@ -60,7 +60,7 @@ if(NCREC_BUILD_PLUGIN)
         src/platform/OverlayWindow.cpp
     )
     target_link_libraries(NCREC PRIVATE ncrec_core ncrec_imgui user32 gdi32)
-    target_compile_definitions(NCREC PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_definitions(NCREC PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
     set_target_properties(NCREC PROPERTIES
         PREFIX ""
         SUFFIX ".asi"

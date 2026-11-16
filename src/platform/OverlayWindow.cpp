@@ -53,7 +53,7 @@ public:
         klass.style = CS_HREDRAW | CS_VREDRAW;
         klass.lpfnWndProc = &OverlayWindow::windowProc;
         klass.hInstance = module_;
-        klass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+        klass.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
         klass.lpszClassName = kWindowClass;
 
         if (!RegisterClassExW(&klass)) {
@@ -213,7 +213,9 @@ public:
                     const HRESULT result = swapchain_->ResizeBuffers(
                         0, LOWORD(lparam), HIWORD(lparam), DXGI_FORMAT_UNKNOWN, 0);
                     if (SUCCEEDED(result)) {
-                        createRenderTarget();
+                        if (!createRenderTarget()) {
+                            log("ERROR: D3D11 render target recreation failed.");
+                        }
                     } else {
                         log("ERROR: D3D11 swapchain resize failed.");
                     }

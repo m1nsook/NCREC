@@ -1,6 +1,5 @@
 #include "platform/OverlayWindow.hpp"
 
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 // Keep DllMain minimal. All Win32, graphics, and ImGui setup happens later
