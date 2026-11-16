@@ -3,6 +3,7 @@
 #include "core/CameraTransport.hpp"
 #include "core/ProjectIO.hpp"
 #include "core/Session.hpp"
+#include "editor/WorkspaceLayout.hpp"
 
 #include <cmath>
 #include <chrono>
@@ -190,6 +191,54 @@ void testProjectFiles() {
     fs::remove_all(directory);
 }
 
+
+bool rectContained(const ncrec::editor::Rect& r, float w, float h) {
+    constexpr float epsilon = 0.01f;
+    return r.x >= -epsilon && r.y >= -epsilon
+        && r.width >= -epsilon && r.height >= -epsilon
+        && r.x + r.width <= w + epsilon
+        && r.y + r.height <= h + epsilon;
+}
+
+void testFullscreenWorkspace() {
+    using ncrec::editor::calculateWorkspace;
+    const auto desktop = calculateWorkspace(1744, 864);
+    require(desktop.showProjectPanel && desktop.showInspector, "desktop sidebars");
+    require(near(desktop.menuBar.height, 36), "top bar matches HTML");
+    require(near(desktop.statusBar.height, 26), "status bar matches HTML");
+    require(near(desktop.timeline.height, 240), "timeline matches HTML");
+    require(near(desktop.projectPanel.width, 260), "project pane matches HTML");
+    require(near(desktop.inspector.width, 320), "inspector matches HTML");
+    require(near(desktop.playback.height, 44), "transport matches HTML");
+    require(near(desktop.preview.width, 1164), "center fills available width");
+    require(near(desktop.preview.height, 518), "center fills available height");
+    require(near(desktop.playback.y, desktop.preview.y + desktop.preview.height),
+        "playback directly below preview");
+    require(near(desktop.timeline.y, desktop.playback.y + desktop.playback.height),
+        "timeline directly below main workspace");
+
+    const auto compact = calculateWorkspace(800, 600);
+    require(!compact.showProjectPanel && compact.showInspector,
+        "collapse project sidebar on compact screen");
+    require(near(compact.preview.width, 480), "compact preview remains wide");
+    const auto narrow = calculateWorkspace(640, 480);
+    require(!narrow.showProjectPanel && !narrow.showInspector,
+        "both sidebars collapse for small screens");
+    require(near(narrow.preview.width, 640), "small preview is fullscreen");
+    const auto scaled = calculateWorkspace(1920, 1080, 1.5f);
+    require(near(scaled.menuBar.height, 54), "DPI scale applies to top bar");
+    require(near(scaled.projectPanel.width, 390), "DPI scale applies to sidebar");
+    const auto tiny = calculateWorkspace(320, 180);
+    for (const auto& rect : {tiny.menuBar, tiny.projectPanel, tiny.preview,
+                             tiny.playback, tiny.inspector, tiny.timeline,
+                             tiny.statusBar}) {
+        require(rectContained(rect, 320, 180), "tiny layout stays within display");
+    }
+    const auto bad = calculateWorkspace(-1, 300);
+    require(near(bad.screen.width, 0) && near(bad.timeline.height, 0),
+        "invalid framebuffer returns empty layout");
+}
+
 void testSession() {
     ncrec::Session session;
     require(session.execute("path play").find("needs") != std::string::npos, "empty play guarded");
@@ -218,6 +267,7 @@ int main() {
         testCameraRecording();
         testProjectFiles();
         testSession();
+        testFullscreenWorkspace();
     } catch (const std::exception& error) {
         std::cerr << "FAIL: " << error.what() << '\n';
         return 1;
