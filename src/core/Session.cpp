@@ -1,10 +1,12 @@
 #include "core/Session.hpp"
+#include "core/ProjectIO.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <utility>
 
 namespace ncrec {
 namespace {
@@ -13,7 +15,8 @@ namespace {
     return "Commands: help, status, camera pose, camera pos <x> <y> <z>, "
            "camera fov <degrees>, camera rotate <yaw> <pitch> <roll>, "
            "path demo, path add <seconds>, path remove <index>, path list, "
-           "path clear, path play, path pause, path seek <seconds>, path sample <seconds>";
+           "path clear, path play, path pause, path seek <seconds>, path sample <seconds>, "
+           "path save <name>, path load <name>";
 }
 
 template<typename... Args>
@@ -108,6 +111,32 @@ std::string Session::execute(std::string_view command) {
             output << " " << std::fixed << std::setprecision(3) << frame.timeSeconds << "s";
         return output.str();
     }
+
+    if (action == "save" || action == "load") {
+        std::string name, trailing;
+        if (!(input >> name) || (input >> trailing) || name.size() > 64
+            || !std::all_of(name.begin(), name.end(), [](char ch) {
+                return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+                    || (ch >= '0' && ch <= '9') || ch == '-' || ch == '_';
+            })) {
+            return "Project names must be 1-64 letters, numbers, '_' or '-'.";
+        }
+        if (projects_.empty()) return "Project storage is not configured.";
+        const auto file = projects_ / (name + ".ncrec.json");
+        std::string error;
+        if (action == "save") {
+            return ProjectIO::save(path_, file, error)
+                ? "Saved camera path: " + name : "Save failed: " + error;
+        }
+        auto loaded = ProjectIO::load(file, error);
+        if (!loaded) return "Load failed: " + error;
+        path_ = std::move(*loaded);
+        playing_ = false;
+        cursorSeconds_ = 0.0;
+        seek(0.0);
+        return "Loaded camera path: " + name;
+    }
+
     if (action == "add") {
         double seconds{};
         if (!parseNumbers(input, seconds) || seconds < 0)
@@ -158,6 +187,10 @@ void Session::seek(double seconds) noexcept {
     if (!std::isfinite(seconds)) return;
     cursorSeconds_ = std::clamp(seconds, 0.0, path_.durationSeconds());
     if (const auto pose = path_.evaluate(cursorSeconds_)) (void)rig_.setPose(*pose);
+}
+
+void Session::setProjectDirectory(std::filesystem::path directory) {
+    projects_ = std::move(directory);
 }
 
 bool Session::setCameraPose(const CameraState& state) noexcept { return rig_.setPose(state); }

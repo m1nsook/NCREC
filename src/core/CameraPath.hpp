@@ -42,6 +42,7 @@ public:
     void clear() noexcept;
     [[nodiscard]] bool removeKeyframe(std::size_t index) noexcept;
     void setPositionInterpolation(PositionInterpolation interpolation) noexcept;
+    [[nodiscard]] PositionInterpolation positionInterpolation() const noexcept { return interpolation_; }
 
     [[nodiscard]] std::size_t size() const noexcept;
     [[nodiscard]] double durationSeconds() const noexcept;

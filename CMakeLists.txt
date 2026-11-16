@@ -7,14 +7,24 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(CTest)
 
+# Portable, versioned JSON camera project format, pinned to a release commit.
+include(FetchContent)
+FetchContent_Declare(nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG 55f93686c01528224f448c19128836e7df245f72
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 add_library(ncrec_core STATIC
     src/core/CameraPath.cpp
     src/core/CameraRig.cpp
     src/core/CameraTransport.cpp
+    src/core/ProjectIO.cpp
     src/core/Session.cpp
 )
 target_include_directories(ncrec_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_compile_features(ncrec_core PUBLIC cxx_std_20)
+target_link_libraries(ncrec_core PUBLIC nlohmann_json::nlohmann_json)
 if(MSVC)
     target_compile_options(ncrec_core PRIVATE /W4 /permissive- /utf-8)
 else()

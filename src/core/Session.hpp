@@ -5,6 +5,7 @@
 
 #include <string>
 #include <string_view>
+#include <filesystem>
 
 namespace ncrec {
 
@@ -13,6 +14,7 @@ namespace ncrec {
 class Session {
 public:
     [[nodiscard]] std::string execute(std::string_view command);
+    void setProjectDirectory(std::filesystem::path directory);
     void advance(double deltaSeconds) noexcept;
     void seek(double seconds) noexcept;
 
@@ -29,6 +31,7 @@ private:
     CameraRig rig_;
     double cursorSeconds_{};
     bool playing_{};
+    std::filesystem::path projects_;
 };
 
 } // namespace ncrec
