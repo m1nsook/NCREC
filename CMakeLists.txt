@@ -9,6 +9,8 @@ include(CTest)
 
 add_library(ncrec_core STATIC
     src/core/CameraPath.cpp
+    src/core/CameraRig.cpp
+    src/core/CameraTransport.cpp
     src/core/Session.cpp
 )
 target_include_directories(ncrec_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")

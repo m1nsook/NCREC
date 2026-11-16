@@ -131,6 +131,12 @@ void CameraPath::clear() noexcept {
     keyframes_.clear();
 }
 
+bool CameraPath::removeKeyframe(std::size_t index) noexcept {
+    if (index >= keyframes_.size()) return false;
+    keyframes_.erase(keyframes_.begin() + static_cast<std::ptrdiff_t>(index));
+    return true;
+}
+
 void CameraPath::setPositionInterpolation(PositionInterpolation interpolation) noexcept {
     interpolation_ = interpolation;
 }

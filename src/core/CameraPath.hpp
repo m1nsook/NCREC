@@ -40,6 +40,7 @@ public:
     // Invalid states and duplicate timestamps are rejected.
     bool addKeyframe(const Keyframe& keyframe);
     void clear() noexcept;
+    [[nodiscard]] bool removeKeyframe(std::size_t index) noexcept;
     void setPositionInterpolation(PositionInterpolation interpolation) noexcept;
 
     [[nodiscard]] std::size_t size() const noexcept;

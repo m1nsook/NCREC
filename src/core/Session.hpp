@@ -1,25 +1,32 @@
 #pragma once
 
 #include "core/CameraPath.hpp"
+#include "core/CameraRig.hpp"
 
 #include <string>
 #include <string_view>
 
 namespace ncrec {
 
-// Prototype command/timeline model. Does not read or modify the game camera.
+// Editor-side virtual camera and timeline model. The rig is deliberately
+// independent of the game view until a supported adapter is available.
 class Session {
 public:
     [[nodiscard]] std::string execute(std::string_view command);
     void advance(double deltaSeconds) noexcept;
     void seek(double seconds) noexcept;
 
+    [[nodiscard]] bool setCameraPose(const CameraState& state) noexcept;
+    [[nodiscard]] bool addKeyframe(double seconds);
+    [[nodiscard]] bool removeKeyframe(std::size_t index);
+    [[nodiscard]] const CameraRig& rig() const noexcept;
     [[nodiscard]] const CameraPath& path() const noexcept;
     [[nodiscard]] double cursorSeconds() const noexcept;
     [[nodiscard]] bool playing() const noexcept;
 
 private:
     CameraPath path_;
+    CameraRig rig_;
     double cursorSeconds_{};
     bool playing_{};
 };
