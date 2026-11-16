@@ -47,3 +47,14 @@ font installation or separate font files. Source licenses are in
 - Verify input capture with CET/ReShade and avoid input leakage to gameplay.
 - Font scaling above 1.0 is a prototype; higher-resolution font atlas variants may be needed for perfectly crisp 4K scaling.
 - The current camera path is a math preview; camera control and OBS integration are not implemented.
+
+### Input-safety requirements
+
+- Windows system shortcuts, especially Alt+F4, must never be swallowed by NCREC.
+- Escape always hides the overlay, including during a first-run key capture.
+- Until first-run setup is completed, F10 is an emergency recovery toggle.
+- Enter saves a captured first-run key without needing the mouse.
+- The experimental cursor implementation uses ClipCursor release and a
+  relative RawInput-to-ImGui fallback. This is **not the same as CET's engine-level
+  ForceCursor state**. A version-safe game cursor adapter is planned once
+  the native engine integration can be independently verified.

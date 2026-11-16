@@ -231,7 +231,9 @@ struct EditorState {
             activeKey = legacyKey(setting);
         }
         onboarding = activeKey == 0;
-        overlay::set_toggle_key(activeKey);
+        // If the first-run setup is hidden with Escape, F10 reopens it.
+        // This recovery key is active only until a real binding is saved.
+        overlay::set_toggle_key(onboarding ? VK_F10 : activeKey);
         if (onboarding) {
             overlay::set_visible(true);
             shouldStartCapture = true;
@@ -400,6 +402,7 @@ struct EditorState {
         bindingPicker(true);
         ImGui::Dummy(ImVec2(0, 16 * uiScale));
         ImGui::Separator();
+        ImGui::TextColored(kMuted, "Esc hides setup; F10 reopens it if needed.");
         ImGui::TextColored(kMuted, "No account, external font install or CET window required.");
         ImGui::End();
     }

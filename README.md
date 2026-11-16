@@ -94,3 +94,16 @@ NCREC source: MIT; see [LICENSE](LICENSE). Vendored DX12 hook license is in
 [src/platform/dx12/LICENSE](src/platform/dx12/LICENSE). Embedded font
 licenses: [Inter OFL](licenses/Inter-OFL.txt) and
 [JetBrains Mono OFL](licenses/JetBrainsMono-OFL.txt).
+
+### Emergency recovery and mouse capture
+
+The first-run wizard has a keyboard-only fallback: after choosing a key,
+press **Enter** to save. **Esc** hides the overlay in an emergency, and **F10**
+reopens first-run setup if no key has been saved. **Alt+F4** is passed through to
+Cyberpunk rather than intercepted by NCREC. The input layer also attempts to
+unclip the game's mouse and use relative RawInput if the pointer stays locked.
+This behavior is experimental and requires real-game testing.
+
+If NCREC makes the game unresponsive, remove `NCREC.asi` from
+`bin/x64/plugins/` before launching again. Do not use the prior trapped-input
+build.
