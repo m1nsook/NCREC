@@ -190,6 +190,7 @@ struct EditorState {
     double newKeyframeTime{0.0};
     double nudgeStep{1.0};
     std::string cameraMessage;
+    std::array<char, 65> shotName{};
     UINT activeKey{};
     UINT candidateKey{};
     std::string bindingMessage;
@@ -215,6 +216,8 @@ struct EditorState {
         const auto directory = moduleDirectory(instance);
         config = directory / L"NCREC.ini";
         logfile.open(directory / L"NCREC.log", std::ios::app);
+        session.setProjectDirectory(directory / L"NCREC" / L"projects");
+        std::snprintf(shotName.data(), shotName.size(), "shot_001");
 
         // Read numeric VK first; support the legacy named toggle key.
         wchar_t setting[80]{};
@@ -498,6 +501,27 @@ struct EditorState {
                 }
                 ImGui::PopID();
             }
+        }
+        ImGui::EndChild();
+
+        ImGui::Dummy(ImVec2(0, 7 * uiScale));
+        if (ImGui::BeginChild("Projects", ImVec2(0, 119 * uiScale), ImGuiChildFlags_Borders)) {
+            ImGui::TextColored(kAccent, "SAVE / LOAD SHOT");
+            ImGui::SetNextItemWidth(240 * uiScale);
+            ImGui::InputTextWithHint("##ShotFile", "shot_001", shotName.data(), shotName.size());
+            ImGui::SameLine();
+            if (ImGui::Button("Save")) {
+                const std::string command = "path save " + std::string(shotName.data());
+                cameraMessage = session.execute(command);
+                log(cameraMessage);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Load")) {
+                const std::string command = "path load " + std::string(shotName.data());
+                cameraMessage = session.execute(command);
+                log(cameraMessage);
+            }
+            ImGui::TextColored(kMuted, "Projects: bin/x64/plugins/NCREC/projects/");
         }
         ImGui::EndChild();
 
