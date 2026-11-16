@@ -1,4 +1,6 @@
 #include "core/CameraPath.hpp"
+#include "core/CameraRig.hpp"
+#include "core/CameraTransport.hpp"
 #include "core/Session.hpp"
 
 #include <cmath>
@@ -54,6 +56,87 @@ void testHermiteAndQuaternion() {
     require(near(std::abs(half->rotation.w), std::sqrt(0.5)), "normalized rotation");
 }
 
+void testCameraRig() {
+    ncrec::CameraRig rig;
+    require(!rig.setPose({{}, {0,0,0,0}, 60}), "reject zero quaternion");
+    require(!rig.setPose({{}, {}, 190}), "reject FOV > 180");
+    require(rig.step({0, 1, 0, 0, 0, 0}, 1.0, 5.0), "move forward");
+    require(near(rig.pose().position.y, 5.0), "local Y means forward");
+    require(rig.step({1, 1, 0, 0, 0, 0}, 1.0, 5.0), "diagonal move");
+    require(near(rig.pose().position.x, 5 / std::sqrt(2.0)), "diagonal normalized");
+    require(rig.step({0, 0, 0, 90, 0, 0}, 1.0, 0), "yaw world Z");
+    require(rig.step({0, 1, 0, 0, 0, 0}, 1.0, 1), "forward in yaw frame");
+    require(near(rig.pose().position.x, 5 / std::sqrt(2.0) - 1), "yaw 90 rotates forward to -X");
+    const auto previous = rig.pose();
+    require(!rig.step({0, 1, 0, 0, 0, 0}, 2.0, 1.0), "reject huge dt");
+    require(near(rig.pose().position.x, previous.position.x), "invalid motion leaves pose unchanged");
+}
+
+class FakeGameCamera : public ncrec::IGameCameraAdapter {
+public:
+    bool supported{true};
+    bool readable{true};
+    bool enable{true};
+    bool writable{true};
+    int beginCount{};
+    int writeCount{};
+    int restoreCount{};
+    bool isSupported() const noexcept override { return supported; }
+    bool read(ncrec::CameraState& pose) noexcept override {
+        if (readable) pose = {};
+        return readable;
+    }
+    bool beginOverride() noexcept override { ++beginCount; return enable; }
+    bool apply(const ncrec::CameraState&) noexcept override { ++writeCount; return writable; }
+    void endOverride() noexcept override { ++restoreCount; }
+};
+
+void testCameraTransport() {
+    ncrec::UnavailableGameCamera unavailable;
+    ncrec::CameraTransport disabled(unavailable);
+    require(!disabled.start(), "unsupported camera refuses start");
+    require(!disabled.apply({}), "unsupported camera refuses write");
+    disabled.stop();
+
+    FakeGameCamera fake;
+    ncrec::CameraTransport transport(fake);
+    fake.supported = false;
+    require(!transport.start() && fake.beginCount == 0, "unsupported never begins");
+    fake.supported = true;
+    fake.readable = false;
+    require(!transport.start() && fake.beginCount == 0, "read check gates override");
+    fake.readable = true;
+    require(transport.start() && fake.beginCount == 1, "begin valid override");
+    require(!transport.apply({{}, {}, 181}), "invalid output never written");
+    require(fake.writeCount == 0 && transport.active(), "invalid pose does not release ownership");
+    fake.writable = false;
+    require(!transport.apply({}) && !transport.active(), "write failure restores");
+    require(fake.restoreCount == 1, "restore on write failure");
+    require(transport.start(), "reacquire");
+    transport.stop();
+    transport.stop();
+    require(fake.restoreCount == 2, "single restore per acquisition");
+}
+
+void testCameraRecording() {
+    ncrec::Session session;
+    require(session.execute("camera pos 2 3 4") == "Virtual camera position updated.", "camera pos");
+    require(session.execute("camera fov 45") == "Virtual camera FOV updated.", "camera fov");
+    require(session.execute("camera rotate 90 0 0") == "Virtual camera orientation updated.", "camera rotate");
+    require(session.execute("path add 0") == "Virtual camera pose captured as keyframe.", "add at zero");
+    require(session.execute("path add 0").find("duplicate") != std::string::npos, "reject duplicate");
+    require(session.execute("camera pos 8 7 6") == "Virtual camera position updated.", "second pose");
+    require(session.execute("path add 5") == "Virtual camera pose captured as keyframe.", "add at five");
+    require(session.execute("path list").find("5.000") != std::string::npos, "list real keyframe");
+    session.seek(2.5);
+    require(near(session.rig().pose().position.x, 5.0), "scrub updates virtual camera pose");
+    require(session.execute("path remove 0") == "Keyframe removed.", "delete indexed keyframe");
+    require(session.path().size() == 1, "one keyframe remains");
+    require(session.execute("path remove 99").find("not found") != std::string::npos, "reject invalid index");
+    require(!session.addKeyframe(-1), "negative timestamp guarded");
+    require(session.execute("camera pos nan 1 2").find("Usage") != std::string::npos, "nonfinite coordinate guarded");
+}
+
 void testSession() {
     ncrec::Session session;
     require(session.execute("path play").find("needs") != std::string::npos, "empty play guarded");
@@ -77,6 +160,9 @@ int main() {
         testEmptyPath();
         testPathTimeAndInterpolation();
         testHermiteAndQuaternion();
+        testCameraRig();
+        testCameraTransport();
+        testCameraRecording();
         testSession();
     } catch (const std::exception& error) {
         std::cerr << "FAIL: " << error.what() << '\n';
