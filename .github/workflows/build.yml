@@ -31,5 +31,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NCREC-ASI-Windows-x64
-          path: build/bin/x64/plugins/Release/NCREC.asi
+          path: |
+            build/bin/x64/plugins/Release/NCREC.asi
+            LICENSE
+            licenses/Inter-OFL.txt
+            licenses/JetBrainsMono-OFL.txt
+            src/platform/dx12/LICENSE
           if-no-files-found: error
