@@ -30,3 +30,10 @@ rework for lifecycle, synchronization, and API coexistence.
 
 The build downloads these fonts from pinned upstream revisions and embeds them
 as Win32 RCDATA in the ASI. No font files need to be installed on users' PCs.
+
+## Camera project JSON
+
+The native and portable NCREC builds use **JSON for Modern C++** from
+https://github.com/nlohmann/json at pinned commit
+`55f93686c01528224f448c19128836e7df245f72` (v3.12.0).
+License: MIT; see `licenses/nlohmann-json-MIT.txt`.
