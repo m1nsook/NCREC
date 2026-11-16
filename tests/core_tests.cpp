@@ -1,9 +1,13 @@
 #include "core/CameraPath.hpp"
 #include "core/CameraRig.hpp"
 #include "core/CameraTransport.hpp"
+#include "core/ProjectIO.hpp"
 #include "core/Session.hpp"
 
 #include <cmath>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -137,6 +141,55 @@ void testCameraRecording() {
     require(session.execute("camera pos nan 1 2").find("Usage") != std::string::npos, "nonfinite coordinate guarded");
 }
 
+
+void testProjectFiles() {
+    namespace fs = std::filesystem;
+    const auto unique = std::to_string(std::chrono::steady_clock::now()
+                                          .time_since_epoch().count());
+    const fs::path directory = fs::temp_directory_path() / ("ncrec_test_" + unique);
+    fs::create_directories(directory);
+    const fs::path file = directory / "shot_1.ncrec.json";
+
+    ncrec::CameraPath path;
+    path.setPositionInterpolation(ncrec::PositionInterpolation::Linear);
+    require(path.addKeyframe({0.0, {{1, 2, 3}, {}, 48}}), "project frame 0");
+    require(path.addKeyframe({3.0, {{5, 7, 9}, {0, 0, 1, 1}, 67}}), "project frame 1");
+    std::string error;
+    require(ncrec::ProjectIO::save(path, file, error), "save JSON project");
+    auto loaded = ncrec::ProjectIO::load(file, error);
+    require(loaded.has_value() && loaded->size() == 2, "load JSON project");
+    require(loaded->positionInterpolation() == ncrec::PositionInterpolation::Linear,
+        "interpolation round trip");
+    require(near(loaded->evaluate(1.5)->position.x, 3.0), "project coordinates round trip");
+
+    require(ncrec::ProjectIO::save(path, file, error), "replace existing project");
+    {
+        std::ofstream damaged(file, std::ios::trunc);
+        damaged << "{ this is not JSON }";
+    }
+    require(!ncrec::ProjectIO::load(file, error), "malformed file rejected");
+    require(!error.empty(), "malformed file explains failure");
+
+    ncrec::Session session;
+    session.setProjectDirectory(directory);
+    require(session.execute("camera pos 9 8 7") == "Virtual camera position updated.",
+        "prepare session pose");
+    require(session.execute("path add 0") == "Virtual camera pose captured as keyframe.",
+        "add pose for save");
+    require(session.execute("path save shot_2").find("Saved camera") != std::string::npos,
+        "console save");
+    session.execute("path clear");
+    require(session.execute("path load shot_2").find("Loaded camera") != std::string::npos,
+        "console load");
+    require(session.path().size() == 1 && near(session.rig().pose().position.x, 9.0),
+        "console load restores pose");
+    require(session.execute("path save ../evil").find("Project names") != std::string::npos,
+        "path traversal rejected");
+    require(session.execute("path load unknown").find("not found") != std::string::npos,
+        "unknown shot rejected");
+    fs::remove_all(directory);
+}
+
 void testSession() {
     ncrec::Session session;
     require(session.execute("path play").find("needs") != std::string::npos, "empty play guarded");
@@ -163,6 +216,7 @@ int main() {
         testCameraRig();
         testCameraTransport();
         testCameraRecording();
+        testProjectFiles();
         testSession();
     } catch (const std::exception& error) {
         std::cerr << "FAIL: " << error.what() << '\n';
