@@ -166,7 +166,19 @@ LRESULT CALLBACK hook_wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
     // The game remains the owner of its HWND; there is no secondary window
     // and therefore no foreground-loss auto-hide. Toggle only when the game's
     // window actually receives the key-up event.
-    if (msg == WM_KEYUP || msg == WM_SYSKEYUP) {
+    // Never block Windows system-key combinations, including Alt+F4.
+    // Let the game's original WndProc handle them normally.
+    if (msg == WM_SYSKEYDOWN || msg == WM_SYSKEYUP)
+        return CallWindowProcW(g_orig_wnd_proc, hWnd, msg, wParam, lParam);
+
+    // Emergency release even during first-run key capture.
+    if (g_state.show_ui && msg == WM_KEYUP && wParam == VK_ESCAPE) {
+        g_capture_key.store(false, std::memory_order_release);
+        g_captured_key.store(0, std::memory_order_release);
+        g_state.show_ui = false;
+        return 0;
+    }
+    if (msg == WM_KEYUP) {
         if (g_capture_key.load(std::memory_order_acquire)) {
             // Only the first released key wins; do not toggle the UI in
             // binding mode. Capture remains strictly a single keyboard key.
@@ -194,7 +206,6 @@ LRESULT CALLBACK hook_wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
             case WM_MBUTTONDOWN: case WM_MBUTTONUP:
             case WM_MOUSEWHEEL: case WM_MOUSEHWHEEL:
             case WM_KEYDOWN: case WM_KEYUP: case WM_CHAR:
-            case WM_SYSKEYDOWN: case WM_SYSKEYUP:
                 // Keep gameplay controls from acting while the editor is in use.
                 // Engine-specific RawInput paths still require separate testing.
                 return 0;

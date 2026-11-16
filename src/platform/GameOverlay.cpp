@@ -358,8 +358,13 @@ struct EditorState {
 
         if (candidateKey) {
             ImGui::SameLine();
-            if (accentButton(setup ? "Save and finish" : "Save binding")) {
+            // Keyboard fallback: choose a key, then press Enter to save.
+            if (accentButton(setup ? "Save and finish" : "Save binding")
+                || (setup && !captureActive && ImGui::IsKeyPressed(ImGuiKey_Enter))) {
                 saveBinding(setup);
+            }
+            if (setup) {
+                ImGui::TextColored(kMuted, "Press Enter to save without using the mouse.");
             }
         }
     }
@@ -390,7 +395,7 @@ struct EditorState {
         ImGui::Dummy(ImVec2(0, 8 * uiScale));
         ImGui::TextUnformatted("Choose a key to open and close the editor");
         ImGui::TextColored(kMuted,
-            "Press one key, then save. You can change it later in Settings.");
+            "Press one key, then press Enter to save without the mouse.");
         ImGui::Dummy(ImVec2(0, 12 * uiScale));
         bindingPicker(true);
         ImGui::Dummy(ImVec2(0, 16 * uiScale));
