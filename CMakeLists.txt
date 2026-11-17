@@ -21,6 +21,7 @@ add_library(ncrec_core STATIC
     src/core/CameraTransport.cpp
     src/core/ProjectIO.cpp
     src/core/Session.cpp
+    src/editor/WorkspaceLayout.cpp
 )
 target_include_directories(ncrec_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_compile_features(ncrec_core PUBLIC cxx_std_20)
@@ -37,7 +38,7 @@ if(BUILD_TESTING)
     add_test(NAME ncrec_core_tests COMMAND ncrec_core_tests)
 endif()
 
-option(NCREC_BUILD_PLUGIN "Build experimental DX12 in-game editor ASI" ${WIN32})
+option(NCREC_BUILD_PLUGIN "Build legacy unstable DX12 ASI (experimental, opt-in)" OFF)
 if(NCREC_BUILD_PLUGIN)
     if(NOT WIN32)
         message(FATAL_ERROR "The ASI plugin requires Windows.")
@@ -124,5 +125,38 @@ if(NCREC_BUILD_PLUGIN)
     )
     if(MSVC)
         target_compile_options(NCREC PRIVATE /W4 /permissive- /utf-8)
+    endif()
+endif()
+
+# RED4ext is a separate native loader target, NOT an ASI renamed to DLL.
+# The first milestone deliberately does not hook rendering or game memory.
+option(NCREC_BUILD_RED4EXT "Build safe RED4ext host DLL (no UI yet)" ${WIN32})
+if(NCREC_BUILD_RED4EXT)
+    if(NOT WIN32)
+        message(FATAL_ERROR "RED4ext plugins require Windows x64.")
+    endif()
+    if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+        message(FATAL_ERROR "NCREC RED4ext must be built for x64.")
+    endif()
+
+    set(RED4EXT_HEADER_ONLY ON CACHE BOOL "Use header-only RED4ext SDK" FORCE)
+    set(RED4EXT_INSTALL OFF CACHE BOOL "Don't install SDK files" FORCE)
+    FetchContent_Declare(red4ext_sdk
+        GIT_REPOSITORY https://github.com/wopss/RED4ext.SDK.git
+        GIT_TAG a4a781088a92a8efa890d94fde4efd8985d497c7
+    )
+    FetchContent_MakeAvailable(red4ext_sdk)
+
+    add_library(NCREC_RED4ext SHARED src/platform/red4ext/Plugin.cpp)
+    target_compile_features(NCREC_RED4ext PRIVATE cxx_std_20)
+    target_link_libraries(NCREC_RED4ext PRIVATE RED4ext::SDK ncrec_core)
+    target_compile_definitions(NCREC_RED4ext PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
+    set_target_properties(NCREC_RED4ext PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "NCREC"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/red4ext/plugins/NCREC"
+    )
+    if(MSVC)
+        target_compile_options(NCREC_RED4ext PRIVATE /W4 /permissive- /utf-8)
     endif()
 endif()

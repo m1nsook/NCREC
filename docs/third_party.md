@@ -37,3 +37,10 @@ The native and portable NCREC builds use **JSON for Modern C++** from
 https://github.com/nlohmann/json at pinned commit
 `55f93686c01528224f448c19128836e7df245f72` (v3.12.0).
 License: MIT; see `licenses/nlohmann-json-MIT.txt`.
+
+## RED4ext SDK
+
+RED4ext.SDK 1.0.0 is downloaded at build time from pinned commit
+`a4a781088a92a8efa890d94fde4efd8985d497c7`.
+License: MIT; see `licenses/RED4ext-SDK-MIT.txt`.
+This SDK is used by the separate loader-only NCREC.dll bootstrap.

@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NCREC | Cinematic Editor</title>
+
+    <!-- Import Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Import FontAwesome Icon Library -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* CSS Variables for easy theming */
+        
+         :root {
+            --bg-main: #0f0f0f;
+            --bg-panel: #1a1a1a;
+            --bg-header: #141414;
+            --bg-input: #2a2a2a;
+            --border-color: #333333;
+            --text-main: #e0e0e0;
+            --text-muted: #888888;
+            --accent-yellow: #fcee0a;
+            --accent-yellow-hover: #e5d809;
+            --accent-yellow-dim: rgba(252, 238, 10, 0.15);
+            --font-ui: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+        /* Reset & Base Styles */
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            /* Prevent text selection like a real app */
+        }
+        
+        body {
+            font-family: var(--font-ui);
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            /* Prevent full page scrolling */
+            display: flex;
+            flex-direction: column;
+            font-size: 13px;
+        }
+        /* Ensure icons align perfectly with text */
+        
+        .fa-solid,
+        .fa-regular,
+        .fa-brands {
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* Scrollbar Styling */
+        
+         ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+         ::-webkit-scrollbar-track {
+            background: var(--bg-panel);
+        }
+        
+         ::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 4px;
+        }
+        
+         ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Top Menu Bar */
+        
+        .menu-bar {
+            height: 36px;
+            background-color: var(--bg-header);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            font-weight: 500;
+            gap: 4px;
+        }
+        
+        .menu-brand {
+            color: var(--accent-yellow);
+            font-family: var(--font-mono);
+            font-weight: 600;
+            margin-right: 16px;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .menu-item {
+            cursor: pointer;
+            padding: 6px 12px;
+            border-radius: 4px;
+            color: #ccc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.1s;
+        }
+        
+        .menu-item:hover {
+            background-color: var(--bg-input);
+            color: #fff;
+        }
+        
+        .menu-item i {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        
+        .menu-item:hover i {
+            color: #fff;
+        }
+        /* Main Workspace */
+        
+        .workspace {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            /* Crucial for flexbox scrolling */
+            flex-direction: row;
+        }
+        /* Panels */
+        
+        .panel {
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .panel:last-child {
+            border-right: none;
+        }
+        
+        .panel-header {
+            height: 32px;
+            background-color: var(--bg-header);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-color);
+            gap: 8px;
+        }
+        
+        .panel-content {
+            flex: 1;
+            overflow: auto;
+            padding: 16px;
+        }
+        /* Specific Panels */
+        
+        .left-panel {
+            width: 260px;
+            min-width: 200px;
+        }
+        
+        .right-panel {
+            width: 320px;
+            min-width: 280px;
+        }
+        /* Center Panel (Viewport) */
+        
+        .center-panel {
+            flex: 1;
+            background-color: #050505;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        /* Viewport Overlay Toolbar */
+        
+        .viewport-toolbar {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background-color: rgba(26, 26, 26, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            display: flex;
+            padding: 4px;
+            gap: 4px;
+            z-index: 10;
+            backdrop-filter: blur(4px);
+        }
+        
+        .tool-icon {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+        
+        .tool-icon:hover {
+            background-color: var(--bg-input);
+            color: #fff;
+        }
+        
+        .tool-icon.active {
+            background-color: var(--accent-yellow-dim);
+            color: var(--accent-yellow);
+        }
+        
+        .viewport-placeholder {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            margin: 12px;
+            border: 1px dashed #333;
+            border-radius: 4px;
+            gap: 12px;
+        }
+        
+        .viewport-placeholder i {
+            font-size: 48px;
+            opacity: 0.2;
+        }
+        /* Playback Controls */
+        
+        .playback-bar {
+            height: 44px;
+            background: var(--bg-panel);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 16px;
+        }
+        /* Form Elements (Inputs, Buttons) */
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            flex: 1;
+            padding: 6px 10px;
+        }
+        
+        .input-wrapper:focus-within {
+            border-color: var(--text-muted);
+        }
+        
+        .input-wrapper input {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            width: 100%;
+            outline: none;
+        }
+        
+        .input-wrapper .axis {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 8px;
+            font-family: var(--font-ui);
+        }
+        /* Buttons */
+        
+        .btn {
+            background-color: var(--bg-input);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-family: var(--font-ui);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        .btn:hover {
+            background-color: #3a3a3a;
+        }
+        
+        .btn-icon-only {
+            padding: 6px 8px;
+        }
+        
+        .btn-primary {
+            background-color: var(--accent-yellow);
+            color: #000;
+            border-color: var(--accent-yellow);
+            font-weight: 600;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--accent-yellow-hover);
+        }
+        /* Tabs */
+        
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            background-color: var(--bg-main);
+            padding: 4px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        .tab:hover {
+            color: #fff;
+        }
+        
+        .tab.active {
+            background-color: var(--bg-input);
+            color: var(--accent-yellow);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+        }
+        /* Timeline Track */
+        
+        .timeline-track {
+            background-color: var(--bg-input);
+            height: 48px;
+            border-radius: 4px;
+            margin-top: 16px;
+            position: relative;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+        }
+        
+        .timeline-playhead {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: var(--accent-yellow);
+            cursor: ew-resize;
+            z-index: 2;
+        }
+        
+        .timeline-playhead::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            width: 10px;
+            height: 10px;
+            background-color: var(--accent-yellow);
+            border-radius: 50%;
+        }
+        
+        .timeline-time {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+        /* Status Bar */
+        
+        .status-bar {
+            height: 26px;
+            background-color: var(--bg-header);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        /* Utility */
+        
+        .flex-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .flex-col {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        hr {
+            border: 0;
+            border-top: 1px solid var(--border-color);
+            margin: 16px 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Top Menu Bar -->
+    <div class="menu-bar">
+        <div class="menu-brand"><i class="fa-solid fa-video"></i> NCREC</div>
+
+        <div class="menu-item"><i class="fa-regular fa-file"></i> File</div>
+        <div class="menu-item"><i class="fa-solid fa-pen-to-square"></i> Edit</div>
+        <div class="menu-item"><i class="fa-solid fa-eye"></i> View</div>
+        <div class="menu-item"><i class="fa-solid fa-play"></i> Playback</div>
+        <div class="menu-item"><i class="fa-solid fa-table-columns"></i> Window</div>
+        <div class="menu-item"><i class="fa-regular fa-circle-question"></i> Help</div>
+
+        <div style="margin-left: auto; display: flex; gap: 8px;">
+            <button class="btn btn-icon-only" title="Save Project"><i class="fa-solid fa-floppy-disk"></i></button>
+            <button class="btn"><i class="fa-solid fa-desktop"></i> Hide UI</button>
+        </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+
+        <!-- Left Panel (Project Assets) -->
+        <div class="panel left-panel">
+            <div class="panel-header">
+                <i class="fa-solid fa-folder-open"></i> Project / Shots
+            </div>
+            <div class="panel-content">
+                <div style="color: var(--text-muted); font-size: 12px; text-align: center; margin-top: 40px;">
+                    <i class="fa-solid fa-film" style="font-size: 32px; margin-bottom: 12px; opacity: 0.5;"></i><br> No shots created yet.<br><br>
+                    <button class="btn btn-primary" style="width: 100%; justify-content: center;">
+                        <i class="fa-solid fa-plus"></i> New Shot
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Panel (Viewport) -->
+        <div class="panel center-panel">
+            <!-- Viewport Overlay Toolbar -->
+            <div class="viewport-toolbar">
+                <div class="tool-icon active" title="Select/Move"><i class="fa-solid fa-arrow-pointer"></i></div>
+                <div class="tool-icon" title="Pan Camera"><i class="fa-solid fa-hand"></i></div>
+                <div class="tool-icon" title="Orbit"><i class="fa-solid fa-arrows-spin"></i></div>
+                <div class="tool-icon" title="Zoom"><i class="fa-solid fa-magnifying-glass-plus"></i></div>
+                <div style="width: 1px; background: var(--border-color); margin: 4px;"></div>
+                <div class="tool-icon" title="Grid"><i class="fa-solid fa-border-all"></i></div>
+            </div>
+
+            <div class="viewport-placeholder">
+                <i class="fa-solid fa-camera"></i>
+                <span>[ Camera Preview Feed ]</span>
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="playback-bar">
+                <button class="btn"><i class="fa-solid fa-folder-open"></i> Load Demo</button>
+                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 8px;"></div>
+                <button class="btn btn-icon-only" title="Rewind"><i class="fa-solid fa-backward-step"></i></button>
+                <button class="btn btn-primary" style="padding: 6px 24px;"><i class="fa-solid fa-play"></i> Play Preview</button>
+                <button class="btn btn-icon-only" title="Forward"><i class="fa-solid fa-forward-step"></i></button>
+                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 8px;"></div>
+                <button class="btn" style="color: #ff5555;"><i class="fa-solid fa-trash-can"></i> Clear Shot</button>
+            </div>
+        </div>
+
+        <!-- Right Panel (Inspector) -->
+        <div class="panel right-panel">
+            <div class="panel-header">Inspector</div>
+            <div class="panel-content">
+
+                <!-- Tabs -->
+                <div class="tabs">
+                    <div class="tab active"><i class="fa-solid fa-timeline"></i> Timeline</div>
+                    <div class="tab"><i class="fa-solid fa-terminal"></i> Console</div>
+                    <div class="tab"><i class="fa-solid fa-gear"></i> Settings</div>
+                </div>
+
+                <!-- Virtual Camera Pose -->
+                <div class="form-group">
+                    <div class="form-label"><i class="fa-solid fa-video" style="margin-right: 6px;"></i> Virtual Camera Pose</div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Edit coordinates to prepare a shot. Not affecting the game.</div>
+
+                    <div class="flex-col">
+                        <!-- X Axis -->
+                        <div class="input-wrapper">
+                            <span style="color: #ff5555; font-size: 10px; font-weight: bold; margin-right: 8px;">X</span>
+                            <input type="text" value="0.000" readonly>
+                            <i class="fa-solid fa-arrows-left-right axis"></i>
+                        </div>
+                        <!-- Y Axis -->
+                        <div class="input-wrapper">
+                            <span style="color: #55ff55; font-size: 10px; font-weight: bold; margin-right: 8px;">Y</span>
+                            <input type="text" value="0.000" readonly>
+                            <i class="fa-solid fa-arrows-up-down axis"></i>
+                        </div>
+                        <!-- Z Axis -->
+                        <div class="input-wrapper">
+                            <span style="color: #5555ff; font-size: 10px; font-weight: bold; margin-right: 8px;">Z</span>
+                            <input type="text" value="0.000" readonly>
+                            <i class="fa-solid fa-arrows-up-down-left-right axis"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- Keyframes -->
+                <div class="form-group">
+                    <div class="form-label"><i class="fa-solid fa-diamond" style="margin-right: 6px;"></i> Keyframes</div>
+
+                    <div class="flex-row" style="margin-bottom: 8px;">
+                        <div class="input-wrapper" style="flex: 1;">
+                            <i class="fa-regular fa-clock axis" style="margin-left: 0; margin-right: 8px;"></i>
+                            <input type="text" value="0.000" readonly>
+                        </div>
+                        <button class="btn btn-icon-only" title="Remove Keyframe"><i class="fa-solid fa-minus"></i></button>
+                        <button class="btn btn-icon-only" title="Add Keyframe"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 16px;">Time (seconds)</div>
+
+                    <button class="btn btn-primary" style="width: 100%; justify-content: center;">
+                        <i class="fa-solid fa-plus-circle"></i> Add virtual pose
+                    </button>
+
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 16px; text-align: center; padding: 12px; border: 1px dashed var(--border-color); border-radius: 4px;">
+                        <i class="fa-regular fa-map" style="display: block; margin-bottom: 6px;"></i> No points yet.<br>Set your pose and click Add.
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Panel (Timeline) -->
+    <div class="panel bottom-panel" style="height: 240px; border-bottom: none;">
+        <div class="panel-header">
+            <i class="fa-solid fa-timeline"></i> Camera Timeline
+            <div style="margin-left: auto; display: flex; gap: 8px;">
+                <i class="fa-solid fa-scissors tool-icon" title="Split"></i>
+                <i class="fa-solid fa-delete-left tool-icon" title="Trim"></i>
+                <i class="fa-solid fa-magnifying-glass-minus tool-icon" title="Zoom Out"></i>
+                <i class="fa-solid fa-magnifying-glass-plus tool-icon" title="Zoom In"></i>
+            </div>
+        </div>
+        <div class="panel-content">
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+                Build and preview camera shots before live engine integration.
+            </div>
+
+            <div class="timeline-track">
+                <div class="timeline-playhead"></div>
+                <div style="color: var(--text-muted); font-size: 12px; font-family: var(--font-mono); margin-left: 10px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-circle-nodes" style="color: var(--accent-yellow);"></i> 0 points / 0.000 seconds
+                </div>
+                <div class="timeline-time"><i class="fa-regular fa-clock" style="margin-right: 6px;"></i> Timeline 0.000 s</div>
+            </div>
+
+            <!-- Ruler markings (visual only) -->
+            <div style="display: flex; justify-content: space-between; margin-top: 8px; color: #444; font-size: 10px; font-family: var(--font-mono); padding: 0 4px;">
+                <span>0s</span>
+                <span>1s</span>
+                <span>2s</span>
+                <span>3s</span>
+                <span>4s</span>
+                <span>5s</span>
+                <span>6s</span>
+                <span>7s</span>
+                <span>8s</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-item">
+            <i class="fa-solid fa-circle-check" style="color: #55ff55;"></i> Ready | Virtual Camera: No Cyberpunk camera read/write is enabled yet.
+        </div>
+        <div class="status-item">
+            <i class="fa-solid fa-code-branch"></i> NCREC v1.0.0
+        </div>
+    </div>
+
+</body>
+
+</html>
