@@ -61,9 +61,9 @@ std::string keyLabel(UINT key) {
 
 void configureFonts() {
     // Loaded from resources embedded in this same RED4ext DLL.
-    if (ImFont* body = loadFont(101, 17.0f))
+    if (ImFont* body = loadFont(101, 14.0f))
         ImGui::GetIO().FontDefault = body;
-    (void)loadFont(102, 15.0f);
+    (void)loadFont(102, 13.0f);
 }
 
 void drawPassiveFrame(IDXGISwapChain3*, UINT, UINT) {

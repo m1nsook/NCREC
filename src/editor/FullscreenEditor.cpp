@@ -7,23 +7,50 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <string>
 
 namespace ncrec::editor {
 namespace {
 
-const ImVec4 kBackground{0.059f, 0.059f, 0.059f, 1.0f};
-const ImVec4 kPanel{0.102f, 0.102f, 0.102f, 1.0f};
-const ImVec4 kHeader{0.078f, 0.078f, 0.078f, 1.0f};
-const ImVec4 kBorder{0.20f, 0.20f, 0.20f, 1.0f};
-const ImVec4 kMuted{0.54f, 0.54f, 0.54f, 1.0f};
-const ImVec4 kYellow{0.99f, 0.93f, 0.039f, 1.0f};
+// Direct translation of design/demo.html's CSS palette.
+constexpr ImU32 kMain32   = IM_COL32(15, 15, 15, 255);
+constexpr ImU32 kPanel32  = IM_COL32(26, 26, 26, 255);
+constexpr ImU32 kHeader32 = IM_COL32(20, 20, 20, 255);
+constexpr ImU32 kInput32  = IM_COL32(42, 42, 42, 255);
+constexpr ImU32 kBorder32 = IM_COL32(51, 51, 51, 255);
+constexpr ImU32 kMuted32  = IM_COL32(136, 136, 136, 255);
+constexpr ImU32 kText32   = IM_COL32(224, 224, 224, 255);
+constexpr ImU32 kAccent32 = IM_COL32(252, 238, 10, 255);
+constexpr ImU32 kRed32    = IM_COL32(255, 85, 85, 255);
+constexpr ImU32 kGreen32  = IM_COL32(85, 255, 85, 255);
+constexpr ImU32 kBlue32   = IM_COL32(85, 85, 255, 255);
+const ImVec4 kMain{15.0f / 255, 15.0f / 255, 15.0f / 255, 1};
+const ImVec4 kPanel{26.0f / 255, 26.0f / 255, 26.0f / 255, 1};
+const ImVec4 kHeader{20.0f / 255, 20.0f / 255, 20.0f / 255, 1};
+const ImVec4 kInput{42.0f / 255, 42.0f / 255, 42.0f / 255, 1};
+const ImVec4 kMuted{136.0f / 255, 136.0f / 255, 136.0f / 255, 1};
+const ImVec4 kAccent{252.0f / 255, 238.0f / 255, 10.0f / 255, 1};
 
 constexpr ImGuiWindowFlags kFixedFlags =
     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
     ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
     ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
     ImGuiWindowFlags_NoSavedSettings;
+
+ImVec2 plus(ImVec2 a, float dx, float dy) { return {a.x + dx, a.y + dy}; }
+
+void smallText(ImDrawList* d, ImVec2 p, ImU32 color, const char* value, float size = 11.0f) {
+    d->AddText(ImGui::GetFont(), size, p, color, value);
+}
+
+void centeredText(ImDrawList* d, ImVec2 center, ImU32 color, const char* label,
+                  float size = 13.0f) {
+    ImFont* font = ImGui::GetFont();
+    const ImVec2 extent = font->CalcTextSizeA(size, 10000, 0, label);
+    d->AddText(font, size, plus(center, -extent.x * 0.5f, -extent.y * 0.5f),
+               color, label);
+}
 
 void addMessage(FullscreenEditorState& ui, std::string message) {
     ui.status = message;
@@ -39,29 +66,28 @@ void runCommand(Session& session, FullscreenEditorState& ui, const std::string& 
 void saveShot(Session& session, FullscreenEditorState& ui) {
     runCommand(session, ui, std::string("path save ") + ui.shotName);
 }
-
 void loadShot(Session& session, FullscreenEditorState& ui) {
     runCommand(session, ui, std::string("path load ") + ui.shotName);
 }
 
-bool primaryButton(const char* label, const ImVec2& size = ImVec2(0, 0)) {
-    ImGui::PushStyleColor(ImGuiCol_Button, kYellow);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.98f, 0.30f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.86f, 0.80f, 0.04f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.04f, 0.04f, 0.04f, 1.0f));
-    const bool clicked = ImGui::Button(label, size);
+bool primaryButton(const char* label, ImVec2 size = ImVec2(0, 0)) {
+    ImGui::PushStyleColor(ImGuiCol_Button, kAccent);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(.90f, .85f, .04f, 1));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(.82f, .76f, .02f, 1));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 1));
+    const bool pressed = ImGui::Button(label, size);
     ImGui::PopStyleColor(4);
-    return clicked;
+    return pressed;
 }
 
-bool beginPanel(const char* id, Rect rect, ImVec4 background, bool scroll = false) {
-    if (rect.width < 1.0f || rect.height < 1.0f) return false;
+bool beginPanel(const char* id, Rect rect, ImVec4 background) {
+    if (rect.width <= 0 || rect.height <= 0) return false;
     ImGui::SetCursorScreenPos(ImVec2(rect.x, rect.y));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 9.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.0f);
     ImGui::PushStyleColor(ImGuiCol_ChildBg, background);
-    const ImGuiWindowFlags flags = scroll ? ImGuiWindowFlags_NoSavedSettings : kFixedFlags;
-    ImGui::BeginChild(id, ImVec2(rect.width, rect.height), ImGuiChildFlags_Borders, flags);
+    ImGui::BeginChild(id, ImVec2(rect.width, rect.height),
+                      ImGuiChildFlags_Borders, kFixedFlags);
     return true;
 }
 
@@ -71,138 +97,280 @@ void endPanel() {
     ImGui::PopStyleVar(2);
 }
 
-void heading(const char* name) {
-    ImGui::TextColored(kMuted, "%s", name);
-    ImGui::Separator();
+// The header is an actual 32px surface, not a Text+Separator widget.
+void panelHeading(Rect rect, const char* title) {
+    const ImVec2 p(rect.x, rect.y);
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    d->AddRectFilled(p, plus(p, rect.width, 32), kHeader32);
+    d->AddLine(plus(p, 0, 31.5f), plus(p, rect.width, 31.5f), kBorder32);
+    smallText(d, plus(p, 12, 9), kMuted32, title);
+    ImGui::SetCursorScreenPos(plus(p, 16, 48));
+}
+
+void drawCameraGlyph(ImDrawList* d, ImVec2 c, float scale, ImU32 color) {
+    // Camera icon: protruding viewfinder, rounded body and lens.
+    const ImVec2 p = plus(c, -25 * scale, -15 * scale);
+    d->AddRectFilled(plus(p, 8 * scale, -8 * scale),
+                     plus(p, 23 * scale, 0), color, 3 * scale);
+    d->AddRectFilled(p, plus(p, 50 * scale, 34 * scale), color, 5 * scale);
+    d->AddCircleFilled(plus(p, 25 * scale, 17 * scale), 10 * scale, kMain32);
+    d->AddCircleFilled(plus(p, 25 * scale, 17 * scale), 6 * scale, color);
+}
+
+void drawFilmGlyph(ImDrawList* d, ImVec2 c) {
+    const ImVec2 p = plus(c, -17, -13);
+    d->AddRectFilled(p, plus(p, 34, 26), IM_COL32(92, 92, 92, 255), 4);
+    for (int i = 0; i < 3; ++i) {
+        d->AddRectFilled(plus(p, 4 + i * 10.5f, 4), plus(p, 9 + i * 10.5f, 10), kPanel32, 1);
+        d->AddRectFilled(plus(p, 4 + i * 10.5f, 17), plus(p, 9 + i * 10.5f, 23), kPanel32, 1);
+    }
+    d->AddRectFilled(plus(p, 4, 12), plus(p, 30, 15), kPanel32);
+}
+
+void dashedRect(ImDrawList* d, ImVec2 a, ImVec2 b, ImU32 col) {
+    constexpr float dash = 5, gap = 5;
+    for (float x = a.x; x < b.x; x += dash + gap) {
+        d->AddLine({x, a.y}, {std::min(x + dash, b.x), a.y}, col);
+        d->AddLine({x, b.y}, {std::min(x + dash, b.x), b.y}, col);
+    }
+    for (float y = a.y; y < b.y; y += dash + gap) {
+        d->AddLine({a.x, y}, {a.x, std::min(y + dash, b.y)}, col);
+        d->AddLine({b.x, y}, {b.x, std::min(y + dash, b.y)}, col);
+    }
 }
 
 void drawTopBar(Session& session, FullscreenEditorState& ui, Rect rect) {
     if (!beginPanel("##NCRECTopBar", rect, kHeader)) return;
-    ImGui::TextColored(kYellow, "NCREC");
-    ImGui::SameLine(88);
+    ImGui::SetCursorScreenPos({rect.x + 16, rect.y + 9});
+    ImGui::TextColored(kAccent, "NCREC");
+    ImGui::SameLine(92);
+    ImGui::SetCursorPosY(5);
     if (ImGui::Button("File")) ImGui::OpenPopup("NCRECFile");
     if (ImGui::BeginPopup("NCRECFile")) {
-        if (ImGui::MenuItem("New shot")) {
-            runCommand(session, ui, "path clear");
-        }
+        if (ImGui::MenuItem("New shot")) runCommand(session, ui, "path clear");
         if (ImGui::MenuItem("Save shot")) saveShot(session, ui);
         if (ImGui::MenuItem("Load shot")) loadShot(session, ui);
         ImGui::EndPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Playback")) {
-        runCommand(session, ui, session.playing() ? "path pause" : "path play");
+    if (ImGui::Button("Edit")) ImGui::OpenPopup("NCRECEdit");
+    if (ImGui::BeginPopup("NCRECEdit")) {
+        ImGui::MenuItem("Undo (coming later)", nullptr, false, false);
+        ImGui::MenuItem("Redo (coming later)", nullptr, false, false);
+        ImGui::EndPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Console")) ui.inspector = InspectorTab::Console;
+    if (ImGui::Button("View")) ImGui::OpenPopup("NCRECView");
+    if (ImGui::BeginPopup("NCRECView")) {
+        if (ImGui::MenuItem("Inspector: Timeline")) ui.inspector = InspectorTab::Camera;
+        if (ImGui::MenuItem("Inspector: Console")) ui.inspector = InspectorTab::Console;
+        if (ImGui::MenuItem("Inspector: Settings")) ui.inspector = InspectorTab::Settings;
+        ImGui::EndPopup();
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Settings")) ui.inspector = InspectorTab::Settings;
+    if (ImGui::Button("Playback"))
+        runCommand(session, ui, session.playing() ? "path pause" : "path play");
     ImGui::SameLine();
-    if (ImGui::Button("Hide NCREC")) ui.closeRequested = true;
+    if (ImGui::Button("Window")) ImGui::OpenPopup("NCRECWindow");
+    if (ImGui::BeginPopup("NCRECWindow")) {
+        ImGui::TextDisabled("Fullscreen workspace");
+        ImGui::EndPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Help")) ImGui::OpenPopup("NCRECHelp");
+    if (ImGui::BeginPopup("NCRECHelp")) {
+        ImGui::TextDisabled("NCREC — RED4ext editor preview");
+        ImGui::TextDisabled("Game camera is not connected yet.");
+        ImGui::EndPopup();
+    }
+
+    // Correct right-aligned save + hide controls, as in the HTML.
+    if (rect.width > 820) {
+        ImGui::SetCursorScreenPos({rect.x + rect.width - 168, rect.y + 5});
+        if (ImGui::Button("Save")) saveShot(session, ui);
+        ImGui::SameLine();
+        if (ImGui::Button("Hide UI")) ui.closeRequested = true;
+    }
     endPanel();
 }
 
 void drawProjects(Session& session, FullscreenEditorState& ui, Rect rect) {
     if (!beginPanel("##NCRECProjects", rect, kPanel)) return;
-    heading("PROJECT / SHOTS");
-    ImGui::TextColored(kMuted, "Current project");
-    ImGui::SetNextItemWidth(-1);
-    ImGui::InputTextWithHint("##shotName", "shot_001", ui.shotName, sizeof(ui.shotName));
-    if (primaryButton("New shot", ImVec2(-1, 0))) {
-        runCommand(session, ui, "path clear");
+    panelHeading(rect, "PROJECT / SHOTS");
+
+    const bool empty = session.path().size() == 0;
+    if (empty && rect.height > 320) {
+        ImDrawList* d = ImGui::GetWindowDrawList();
+        const float center = rect.x + rect.width * .5f;
+        const float upper = rect.y + std::min(160.0f, rect.height * .28f);
+        drawFilmGlyph(d, {center, upper});
+        centeredText(d, {center, upper + 48}, kMuted32, "No shots created yet.", 12);
+        ImGui::SetCursorScreenPos({rect.x + 16, upper + 72});
     }
-    if (ImGui::Button("Save shot", ImVec2(-1, 0))) saveShot(session, ui);
-    if (ImGui::Button("Load shot", ImVec2(-1, 0))) loadShot(session, ui);
-    ImGui::TextColored(kMuted, "%zu keyframes in current shot", session.path().size());
+    else {
+        ImGui::TextColored(kMuted, "CURRENT SHOT");
+        ImGui::Text("%zu camera keyframe(s)", session.path().size());
+        ImGui::Dummy({0, 5});
+    }
+
+    ImGui::SetCursorPosX(16);
+    if (primaryButton("+  New Shot", {std::max(40.0f, rect.width - 32), 30}))
+        runCommand(session, ui, "path clear");
+
+    ImGui::Dummy({0, 8});
+    ImGui::SetCursorPosX(16);
+    ImGui::TextColored(kMuted, "Shot filename");
+    ImGui::SetCursorPosX(16);
+    ImGui::SetNextItemWidth(std::max(40.0f, rect.width - 32));
+    ImGui::InputTextWithHint("##shotName", "shot_001", ui.shotName, sizeof(ui.shotName));
+
+    ImGui::SetCursorPosX(16);
+    if (ImGui::Button("Save Shot", {std::max(40.0f, rect.width - 32), 29}))
+        saveShot(session, ui);
+    ImGui::SetCursorPosX(16);
+    if (ImGui::Button("Load Shot", {std::max(40.0f, rect.width - 32), 29}))
+        loadShot(session, ui);
     endPanel();
 }
 
 void drawPreview(Rect rect) {
-    if (!beginPanel("##NCRECPreview", rect, ImVec4(0.020f, 0.020f, 0.020f, 1.0f))) return;
-    heading("CAMERA PREVIEW");
-    ImGui::TextColored(kMuted, "SELECT  /  PAN  /  ORBIT  /  ZOOM");
-    const ImVec2 size = ImGui::GetContentRegionAvail();
-    if (size.y > 30.0f) ImGui::Dummy(ImVec2(1.0f, size.y * 0.36f));
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 16.0f);
-    ImGui::TextDisabled("[ Camera preview unavailable ]");
-    ImGui::TextColored(kMuted,
-        "RED4ext renderer and active game camera integration are not enabled.");
+    if (!beginPanel("##NCRECPreview", rect, ImVec4(.020f, .020f, .020f, 1))) return;
+    ImDrawList* d = ImGui::GetWindowDrawList();
+
+    const ImVec2 top = {rect.x + 12, rect.y + 12};
+    const ImVec2 bottom = {rect.x + rect.width - 12, rect.y + rect.height - 12};
+    if (bottom.x > top.x && bottom.y > top.y) {
+        dashedRect(d, top, bottom, kBorder32);
+    }
+
+    // Floating viewport-tool strip: select, pan, orbit, zoom and grid.
+    const ImVec2 bar{rect.x + 24, rect.y + 24};
+    d->AddRectFilled(bar, plus(bar, 190, 38), IM_COL32(26, 26, 26, 232), 4);
+    d->AddRect(bar, plus(bar, 190, 38), kBorder32, 4);
+    const char* tools[] = {"S", "H", "O", "+", "#"};
+    for (int i = 0; i < 5; ++i) {
+        ImVec2 cell = plus(bar, 4 + i * 37, 4);
+        if (i == 0) d->AddRectFilled(cell, plus(cell, 30, 30),
+                                    IM_COL32(61, 56, 18, 255), 4);
+        centeredText(d, plus(cell, 15, 15), i == 0 ? kAccent32 : kMuted32,
+                     tools[i], 14);
+    }
+
+    const ImVec2 center{rect.x + rect.width * .5f, rect.y + rect.height * .5f};
+    drawCameraGlyph(d, plus(center, 0, -24), 1.0f, IM_COL32(74, 74, 74, 255));
+    centeredText(d, plus(center, 0, 27), kMuted32, "[ Camera Preview Feed ]", 13);
+    centeredText(d, plus(center, 0, 47), IM_COL32(94, 94, 94, 255),
+                 "Game camera not yet connected", 11);
     endPanel();
 }
 
 void drawPlayback(Session& session, FullscreenEditorState& ui, Rect rect) {
-    if (!beginPanel("##NCRECPlayback", rect, kHeader)) return;
-    if (ImGui::Button("Load demo")) runCommand(session, ui, "path demo");
+    if (!beginPanel("##NCRECPlayback", rect, kPanel)) return;
+    // Toolbar is centered horizontally beneath the preview.
+    constexpr float groupWidth = 495;
+    const float x = rect.x + std::max(10.0f, (rect.width - groupWidth) * .5f);
+    ImGui::SetCursorScreenPos({x, rect.y + 7});
+    if (ImGui::Button("Load Demo", {95, 28})) runCommand(session, ui, "path demo");
     ImGui::SameLine();
-    if (ImGui::Button("Rewind")) session.seek(0.0);
+    if (ImGui::Button("|<", {36, 28})) session.seek(0.0);
     ImGui::SameLine();
-    if (primaryButton(session.playing() ? "Pause" : "Play")) {
+    if (primaryButton(session.playing() ? "Pause" : "Play Preview", {132, 28}))
         runCommand(session, ui, session.playing() ? "path pause" : "path play");
-    }
     ImGui::SameLine();
-    if (ImGui::Button("Clear")) runCommand(session, ui, "path clear");
+    if (ImGui::Button(">|", {36, 28})) session.seek(session.path().durationSeconds());
+    ImGui::SameLine();
+    if (ImGui::Button("Clear Shot", {95, 28})) runCommand(session, ui, "path clear");
     endPanel();
 }
 
-void drawCameraInspector(Session& session, FullscreenEditorState& ui) {
+bool axisInput(const char* label, ImU32 labelColor, double& value,
+               float fullWidth) {
+    ImGui::PushID(label);
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    const float h = 34.0f;
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    d->AddRectFilled(p, plus(p, fullWidth, h), kInput32, 4);
+    d->AddRect(p, plus(p, fullWidth, h), kBorder32, 4);
+    smallText(d, plus(p, 10, 10), labelColor, label, 12);
+    ImGui::SetCursorScreenPos(plus(p, 29, 2));
+    ImGui::SetNextItemWidth(std::max(20.0f, fullWidth - 37));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0, 0, 0, 0));
+    const bool changed = ImGui::InputDouble("##numeric", &value, 0, 0, "%.3f");
+    ImGui::PopStyleColor(3);
+    ImGui::SetCursorScreenPos({p.x, p.y + h + 7});
+    ImGui::PopID();
+    return changed;
+}
+
+void drawCameraInspector(Session& session, FullscreenEditorState& ui, Rect rect) {
     ImGui::TextColored(kMuted, "VIRTUAL CAMERA POSE");
-    ImGui::TextDisabled("These values do not affect Cyberpunk's viewpoint.");
+    ImGui::TextColored(kMuted, "Edit coordinates to prepare a shot.");
+    ImGui::TextDisabled("Not affecting the game.");
+    ImGui::Dummy({0, 9});
+    const float width = std::max(90.0f, rect.width - 56);
     CameraState pose = session.rig().pose();
-    ImGui::SetNextItemWidth(-1);
-    bool change = ImGui::InputDouble("X##pose", &pose.position.x, 0.1, 1.0, "%.3f");
-    ImGui::SetNextItemWidth(-1);
-    change |= ImGui::InputDouble("Y##pose", &pose.position.y, 0.1, 1.0, "%.3f");
-    ImGui::SetNextItemWidth(-1);
-    change |= ImGui::InputDouble("Z##pose", &pose.position.z, 0.1, 1.0, "%.3f");
-    ImGui::SetNextItemWidth(-1);
-    change |= ImGui::InputDouble("FOV##pose", &pose.fovDegrees, 1.0, 5.0, "%.1f");
-    if (change && !session.setCameraPose(pose)) {
-        ui.status = "Invalid camera coordinates or field of view.";
-    }
+    bool changed = false;
+    changed |= axisInput("X", kRed32, pose.position.x, width);
+    changed |= axisInput("Y", kGreen32, pose.position.y, width);
+    changed |= axisInput("Z", kBlue32, pose.position.z, width);
+    changed |= axisInput("FOV", kAccent32, pose.fovDegrees, width);
+    if (changed && !session.setCameraPose(pose))
+        ui.status = "Invalid virtual camera position/FOV.";
+
+    ImGui::Dummy({0, 5});
     ImGui::Separator();
+    ImGui::Dummy({0, 4});
     ImGui::TextColored(kMuted, "KEYFRAMES");
-    ImGui::SetNextItemWidth(-1);
-    ImGui::InputDouble("Time (s)##keyframe", &ui.addTimeSeconds, 0.25, 1.0, "%.3f");
-    if (primaryButton("Add virtual pose", ImVec2(-1, 0))) {
+    ImGui::Dummy({0, 4});
+    (void)axisInput("T", kMuted32, ui.addTimeSeconds, width);
+    ImGui::SetCursorPosX(0);
+    if (primaryButton("+  Add virtual pose", {width, 30})) {
         addMessage(ui, session.addKeyframe(ui.addTimeSeconds)
             ? "Virtual keyframe added." : "Invalid or duplicate keyframe time.");
     }
-    ImGui::Separator();
-    // The inspector body is the only panel allowed to scroll when there are
-    // many keyframes. The application shell and inspector root never scroll.
-    for (std::size_t i = 0; i < session.path().size(); ++i) {
-        const Keyframe frame = session.path().keyframes()[i];
-        ImGui::PushID(static_cast<int>(i));
-        ImGui::Text("%zu  @ %.3fs", i, frame.timeSeconds);
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Go")) session.seek(frame.timeSeconds);
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Remove")) {
-            (void)session.removeKeyframe(i);
-            addMessage(ui, "Keyframe deleted.");
+    ImGui::Dummy({0, 5});
+    if (session.path().size() == 0) {
+        const ImVec2 p = ImGui::GetCursorScreenPos();
+        dashedRect(ImGui::GetWindowDrawList(), p, plus(p, width, 75), kBorder32);
+        centeredText(ImGui::GetWindowDrawList(), plus(p, width * .5f, 36),
+                     kMuted32, "No points yet. Add a virtual pose.", 11);
+        ImGui::Dummy({width, 79});
+    } else {
+        for (std::size_t i = 0; i < session.path().size(); ++i) {
+            const Keyframe frame = session.path().keyframes()[i];
+            ImGui::PushID(static_cast<int>(i));
+            ImGui::Text("%zu  |  %.3fs", i, frame.timeSeconds);
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Go")) session.seek(frame.timeSeconds);
+            ImGui::SameLine();
+            if (ImGui::SmallButton("X")) {
+                (void)session.removeKeyframe(i);
+                addMessage(ui, "Keyframe removed.");
+                ImGui::PopID();
+                break;
+            }
             ImGui::PopID();
-            break;
         }
-        ImGui::PopID();
     }
 }
 
 void drawConsole(Session& session, FullscreenEditorState& ui) {
     const float inputHeight = ImGui::GetFrameHeightWithSpacing() + 12.0f;
     const float logsHeight = std::max(48.0f, ImGui::GetContentRegionAvail().y - inputHeight);
-    ImGui::BeginChild("##NCRECConsoleLog", ImVec2(0, logsHeight), ImGuiChildFlags_Borders);
-    for (const std::string& line : ui.consoleLines) {
-        ImGui::TextUnformatted(line.c_str());
-    }
+    ImGui::BeginChild("##NCRECConsoleLog", ImVec2(0, logsHeight),
+                      ImGuiChildFlags_Borders);
+    for (const std::string& line : ui.consoleLines) ImGui::TextUnformatted(line.c_str());
     ImGui::EndChild();
     if (ui.focusConsole) {
         ImGui::SetKeyboardFocusHere();
         ui.focusConsole = false;
     }
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::InputTextWithHint("##NCRECCommand", "Type a command then press Enter...",
-            ui.consoleInput, sizeof(ui.consoleInput),
-            ImGuiInputTextFlags_EnterReturnsTrue)) {
+    if (ImGui::InputTextWithHint("##NCRECCommand",
+            "Type a command then press Enter...", ui.consoleInput,
+            sizeof(ui.consoleInput), ImGuiInputTextFlags_EnterReturnsTrue)) {
         runCommand(session, ui, ui.consoleInput);
         ui.consoleInput[0] = '\0';
         ImGui::SetKeyboardFocusHere(-1);
@@ -211,32 +379,41 @@ void drawConsole(Session& session, FullscreenEditorState& ui) {
 
 void drawInspector(Session& session, FullscreenEditorState& ui, Rect rect) {
     if (!beginPanel("##NCRECInspector", rect, kPanel)) return;
-    heading("INSPECTOR");
-    const char* tabs[] = {"Camera", "Console", "Settings"};
+    panelHeading(rect, "INSPECTOR");
+    const float availableWidth = rect.width - 32;
+    const float tabWidth = std::max(58.0f, (availableWidth - 16) / 3.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, kMain);
+    const char* tabs[] = {"Timeline", "Console", "Settings"};
     for (int n = 0; n < 3; ++n) {
-        if (n) ImGui::SameLine();
+        if (n) ImGui::SameLine(0, 4);
         const bool selected = static_cast<int>(ui.inspector) == n;
-        if (selected) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(.27f,.25f,.08f,1));
-        if (ImGui::Button(tabs[n])) ui.inspector = static_cast<InspectorTab>(n);
-        if (selected) ImGui::PopStyleColor();
+        if (selected) ImGui::PushStyleColor(ImGuiCol_Button, kInput);
+        if (selected) ImGui::PushStyleColor(ImGuiCol_Text, kAccent);
+        if (ImGui::Button(tabs[n], {tabWidth, 29}))
+            ui.inspector = static_cast<InspectorTab>(n);
+        if (selected) ImGui::PopStyleColor(2);
     }
-    ImGui::Separator();
-    // Only one region can scroll at a time. Camera/Settings scroll this
-    // content area; Console scrolls only its log child (not both layers).
+    ImGui::PopStyleColor();
+    ImGui::Dummy({0, 14});
+
     const ImGuiWindowFlags contentFlags =
         ui.inspector == InspectorTab::Console
             ? ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
             : ImGuiWindowFlags_None;
-    ImGui::BeginChild("##InspectorContent", ImVec2(0, 0),
+    ImGui::BeginChild("##InspectorContent", {availableWidth, 0},
                       ImGuiChildFlags_None, contentFlags);
     switch (ui.inspector) {
-        case InspectorTab::Camera: drawCameraInspector(session, ui); break;
-        case InspectorTab::Console: drawConsole(session, ui); break;
+        case InspectorTab::Camera:
+            drawCameraInspector(session, ui, rect);
+            break;
+        case InspectorTab::Console:
+            drawConsole(session, ui);
+            break;
         case InspectorTab::Settings:
             ImGui::TextColored(kMuted, "APPEARANCE");
-            ImGui::SliderFloat("UI scale", &ui.uiScale, 0.75f, 1.75f, "%.2fx");
-            ImGui::TextWrapped("The standalone RED4ext renderer and input settings "
-                               "will be available once their game compatibility is verified.");
+            ImGui::SliderFloat("UI scale", &ui.uiScale, .75f, 1.75f, "%.2fx");
+            ImGui::TextWrapped("Input ownership and native game camera access "
+                               "are still disabled in this visual preview.");
             break;
     }
     ImGui::EndChild();
@@ -245,71 +422,102 @@ void drawInspector(Session& session, FullscreenEditorState& ui, Rect rect) {
 
 void drawTimeline(Session& session, FullscreenEditorState& ui, Rect rect) {
     if (!beginPanel("##NCRECTimeline", rect, kPanel)) return;
-    heading("CAMERA TIMELINE");
-    ImGui::TextColored(kMuted, "Offline camera path preview - time in seconds");
-    const float time = static_cast<float>(session.cursorSeconds());
+    panelHeading(rect, "CAMERA TIMELINE");
+
+    ImGui::TextColored(kMuted, "Build and preview timed camera shots.");
+    const ImVec2 start = ImGui::GetCursorScreenPos();
+    const float width = rect.width - 32;
     const float duration = static_cast<float>(session.path().durationSeconds());
-    const float maxTime = std::max(duration, 0.01f);
-    const float width = std::max(1.0f, ImGui::GetContentRegionAvail().x);
-    const float trackHeight = std::min(72.0f, std::max(20.0f, ImGui::GetContentRegionAvail().y - 12));
-    ImGui::InvisibleButton("##TimelineTrack", ImVec2(width, trackHeight));
-    const ImVec2 start = ImGui::GetItemRectMin();
-    const ImVec2 end = ImGui::GetItemRectMax();
-    ImDrawList* draw = ImGui::GetWindowDrawList();
-    const float lineY = start.y + 32.0f;
-    draw->AddLine(ImVec2(start.x, lineY), ImVec2(end.x, lineY), IM_COL32(82,82,82,255), 2.0f);
+    const float range = std::max(duration, 8.0f);
 
-    for (int i = 0; i <= 10; ++i) {
-        const float x = start.x + (end.x-start.x) * (static_cast<float>(i)/10.0f);
-        draw->AddLine(ImVec2(x,lineY-8), ImVec2(x,lineY+8), IM_COL32(90,90,90,255));
+    const ImVec2 bar = plus(start, 0, 18);
+    const ImVec2 barBottom = plus(bar, width, 48);
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    d->AddRectFilled(bar, barBottom, kInput32, 4);
+    d->AddRect(bar, barBottom, kBorder32, 4);
+
+    for (int tick = 0; tick <= 8; ++tick) {
+        const float f = static_cast<float>(tick) / 8.0f;
+        const float x = bar.x + (barBottom.x - bar.x) * f;
+        d->AddLine({x, bar.y + 16}, {x, bar.y + 32},
+                   IM_COL32(100, 100, 100, 255));
+        char label[24]{};
+        std::snprintf(label, sizeof(label), "%.0fs", range * f);
+        smallText(d, {x, barBottom.y + 10}, kMuted32, label, 11);
     }
+
     for (const Keyframe& k : session.path().keyframes()) {
-        const float x = start.x + (end.x-start.x) *
-            static_cast<float>(k.timeSeconds / maxTime);
-        draw->AddCircleFilled(ImVec2(x,lineY), 5.0f, IM_COL32(252,238,10,255));
+        const float x = bar.x + (barBottom.x - bar.x) *
+            static_cast<float>(k.timeSeconds / range);
+        d->AddCircleFilled({x, bar.y + 24}, 5, kAccent32);
     }
-    const float cursorX = start.x + (end.x-start.x) * time / maxTime;
-    draw->AddLine(ImVec2(cursorX,start.y + 7), ImVec2(cursorX,end.y - 5),
-                  IM_COL32(252,238,10,255), 2.0f);
+    const float cursorTime = static_cast<float>(session.cursorSeconds());
+    const float cursorX = bar.x + (barBottom.x - bar.x) * cursorTime / range;
+    d->AddLine({cursorX, bar.y - 5}, {cursorX, barBottom.y + 5}, kAccent32, 2);
+    d->AddCircleFilled({cursorX, bar.y - 5}, 5, kAccent32);
 
+    ImGui::SetCursorScreenPos(bar);
+    ImGui::InvisibleButton("##TimeScrub", {width, 48});
     if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-        const float fraction = std::clamp((ImGui::GetIO().MousePos.x - start.x) /
-                            std::max(1.0f, end.x - start.x), 0.0f, 1.0f);
-        session.seek(fraction * duration);
+        const float ratio = std::clamp((ImGui::GetIO().MousePos.x - bar.x) /
+            std::max(width, 1.0f), 0.0f, 1.0f);
+        session.seek(ratio * duration);
     }
-    ImGui::TextColored(kMuted, "%zu points    %.3f s    cursor %.3f s",
-                       session.path().size(), duration, session.cursorSeconds());
-    if (!ui.status.empty()) ImGui::TextColored(kMuted, "%s", ui.status.c_str());
+
+    const ImVec2 line = {rect.x + 16, barBottom.y + 41};
+    char summary[160]{};
+    std::snprintf(summary, sizeof(summary), "%zu points  /  %.3f seconds     Timeline %.3fs",
+                  session.path().size(), duration, session.cursorSeconds());
+    smallText(d, line, kMuted32, summary, 12);
+    if (!ui.status.empty())
+        smallText(d, plus(line, 0, 23), kMuted32, ui.status.c_str(), 11);
     endPanel();
 }
 
 void drawStatus(Session& session, Rect rect) {
     if (!beginPanel("##NCRECStatus", rect, kHeader)) return;
-    ImGui::TextColored(kMuted, "NCREC  |  RED4ext editor prototype  |  GAME CAMERA DISCONNECTED");
-    ImGui::SameLine();
-    ImGui::TextColored(kMuted, "   %zu keyframes  %.3fs",
-                       session.path().size(), session.cursorSeconds());
+    ImDrawList* d = ImGui::GetWindowDrawList();
+    d->AddCircleFilled({rect.x + 16, rect.y + 13}, 4, IM_COL32(85, 220, 85, 255));
+    smallText(d, {rect.x + 26, rect.y + 6}, kText32,
+              "Ready  |  Virtual Camera: GAME NOT CONNECTED", 11);
+    char right[90]{};
+    std::snprintf(right, sizeof(right), "NCREC  /  %zu keyframes  /  %.3fs",
+                  session.path().size(), session.cursorSeconds());
+    const ImVec2 extent = ImGui::GetFont()->CalcTextSizeA(11, 10000, 0, right);
+    smallText(d, {rect.x + std::max(0.0f, rect.width - extent.x - 14), rect.y + 6},
+              kMuted32, right, 11);
     endPanel();
 }
 
 } // namespace
 
 void drawFullscreenEditor(Session& session, FullscreenEditorState& ui) {
-    // This function is intentionally never called by the loader-only RED4ext
-    // plugin. The future host must initialize and own ImGui/render/input.
+    // Render-only until native game cursor ownership is verified.
     if (!ImGui::GetCurrentContext()) return;
     const ImGuiIO& io = ImGui::GetIO();
     const WorkspaceLayout layout =
         calculateWorkspace(io.DisplaySize.x, io.DisplaySize.y, ui.uiScale);
-    if (layout.screen.width <= 0.0f || layout.screen.height <= 0.0f) return;
+    if (layout.screen.width <= 0 || layout.screen.height <= 0) return;
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, kBackground);
-    ImGui::PushStyleColor(ImGuiCol_Border, kBorder);
-    ImGui::SetNextWindowPos(ImVec2(0,0), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(layout.screen.width,layout.screen.height), ImGuiCond_Always);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(9, 5));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(7, 7));
+
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, kMain);
+    ImGui::PushStyleColor(ImGuiCol_Border, kPanel);
+    ImGui::PushStyleColor(ImGuiCol_Button, kInput);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(.23f, .23f, .23f, 1));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(.30f, .30f, .30f, 1));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, kInput);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(.20f, .20f, .20f, 1));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(.26f, .26f, .26f, 1));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(.88f, .88f, .88f, 1));
+
+    ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowSize({layout.screen.width, layout.screen.height}, ImGuiCond_Always);
     if (ImGui::Begin("##NCRECFullscreenWorkspace", nullptr,
                      kFixedFlags | ImGuiWindowFlags_NoBringToFrontOnFocus)) {
         drawTopBar(session, ui, layout.menuBar);
@@ -321,8 +529,8 @@ void drawFullscreenEditor(Session& session, FullscreenEditorState& ui) {
         drawStatus(session, layout.statusBar);
     }
     ImGui::End();
-    ImGui::PopStyleColor(2);
-    ImGui::PopStyleVar(3);
+    ImGui::PopStyleColor(9);
+    ImGui::PopStyleVar(6);
 }
 
 } // namespace ncrec::editor
