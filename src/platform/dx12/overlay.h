@@ -12,7 +12,7 @@ void deinit();
 void set_render_callback(render_callback_t render_callback);
 void set_font_config_callback(font_config_callback_t callback);
 // Must be set before init. Render-only preview never acquires or swallows
-// game input; F10 toggles visibility while the game window is focused.
+// game input; the user-configured key toggles visibility while focused.
 void set_passive_mode(bool passive);
 void set_toggle_key(UINT vk_code = VK_OEM_MINUS);
 // Non-blocking one-key capture for the first-run wizard and Settings.

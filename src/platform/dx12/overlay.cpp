@@ -426,7 +426,9 @@ HRESULT STDMETHODCALLTYPE hook_present(IDXGISwapChain3* self, UINT SyncInterval,
         // F10 is a one-key display toggle. Never consume it: the game owns
         // its keyboard. Do not react to keys while Cyberpunk is unfocused.
         const bool focused = GetForegroundWindow() == g_state.hwnd;
-        const bool pressed = focused && (GetAsyncKeyState(VK_F10) & 0x8000) != 0;
+        const UINT previewKey = g_toggle_key.load(std::memory_order_acquire);
+        const bool pressed = focused && previewKey != 0 &&
+            (GetAsyncKeyState(static_cast<int>(previewKey)) & 0x8000) != 0;
         if (pressed && !g_probe_toggle_down)
             g_visible.store(!g_visible.load(std::memory_order_acquire),
                             std::memory_order_release);
