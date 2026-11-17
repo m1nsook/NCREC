@@ -221,8 +221,14 @@ void drawInspector(Session& session, FullscreenEditorState& ui, Rect rect) {
         if (selected) ImGui::PopStyleColor();
     }
     ImGui::Separator();
-    // One intended scroll region; never render a scroll bar on the root.
-    ImGui::BeginChild("##InspectorContent", ImVec2(0, 0));
+    // Only one region can scroll at a time. Camera/Settings scroll this
+    // content area; Console scrolls only its log child (not both layers).
+    const ImGuiWindowFlags contentFlags =
+        ui.inspector == InspectorTab::Console
+            ? ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
+            : ImGuiWindowFlags_None;
+    ImGui::BeginChild("##InspectorContent", ImVec2(0, 0),
+                      ImGuiChildFlags_None, contentFlags);
     switch (ui.inspector) {
         case InspectorTab::Camera: drawCameraInspector(session, ui); break;
         case InspectorTab::Console: drawConsole(session, ui); break;
