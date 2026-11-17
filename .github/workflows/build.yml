@@ -36,5 +36,6 @@ jobs:
             LICENSE
             licenses/Inter-OFL.txt
             licenses/JetBrainsMono-OFL.txt
+            licenses/nlohmann-json-MIT.txt
             src/platform/dx12/LICENSE
           if-no-files-found: error
