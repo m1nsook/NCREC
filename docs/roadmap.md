@@ -34,9 +34,11 @@
 - [x] Fullscreen workspace geometry from demo.html, portable and testable
 - [x] Validate RED4ext host in Cyberpunk 2.50: DLL load/unload logs, menu/gameplay input and clean exit (user-tested 2026-11-17)
 - [x] Give the passive renderer a configurable single-key toggle (F8 default), avoiding CET's F10
-- [ ] **Restore the ASI's first-launch keybinding wizard** in the interactive RED4ext editor: choose a single key, press Enter or click Save, persist, and close
-- [ ] Keep keybinding wizard keyboard-accessible; reject reserved/system keys; preserve Alt+F4 and Escape and existing bindings
-- [ ] Safe game-aware input/cursor ownership and editor activation lifecycle
+- [x] Keyboard-only first-launch RED4ext preview wizard: single-key selection, Enter to persist, Esc hide and F8 reopen (CI and game QA pending)
+- [x] Reserved-key policy: CET F10, F4, modifiers and gameplay keys rejected; unit tests
+- [x] Portable fail-closed input ownership gate with denied-acquisition/focus-loss/release tests (engine adapter NOT connected)
+- [ ] Clickable wizard and settings when a verified game input adapter is available
+- [ ] Game-aware cursor/input adapter and safe acquisition/release on Cyberpunk 2.50
 - [x] Passive fullscreen DX12 workspace visibly renders over Cyberpunk 2.50 (user screenshot, 2026-11-17)
 - [ ] **Interactive native mouse/cursor ownership**: request game cursor, route input to ImGui, restore game input on close/focus loss/unload
 - [ ] Fullscreen editor interactive validation (clickable inspector, keyboard, F8 hide, CET coexistence)

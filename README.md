@@ -7,8 +7,9 @@ Cinematic camera-path editor for Cyberpunk 2077.
 > This project is **in active development, not a stable in-game release**.
 > The native RED4ext DLL **defaults to a safe loader-only mode**. An
 > **opt-in F8 fullscreen rendering preview** is available for Cyberpunk 2.50,
-> but it is NOT INTERACTIVE and is still untested in-game. Camera and input
-> ownership remain disabled.
+> but it is NOT INTERACTIVE. Fullscreen rendering has been seen in-game,
+> while the new first-launch keyboard wizard still needs a game test.
+> Game cursor ownership and camera access remain disabled.
 > The old ASI renderer is retained in source solely as an **unstable legacy
 > experiment**. Don't install both.
 
@@ -39,12 +40,14 @@ notices. **Remove any old bin/x64/plugins/NCREC.asi first.**
 **Default mode:** the previously verified loader-only startup test. No
 NCREC window appears. **Optional new visual test:** rename the included
 `red4ext/plugins/NCREC/NCREC-preview.ini.example` to `NCREC.ini`, then
-press **F8** at the main/pause menu to show/hide the **render-only**
-fullscreen workspace. Set `ToggleKey=F8` in
-`[Experimental]` to another supported single key (F6-F12, Insert,
-Home, End, PageUp, PageDown) if needed. CET can stay on F10.
-Do not try to click its controls yet; game input is intentionally unchanged. If unstable, remove NCREC.ini to restore the safe
-default. This is a development test, not a stable release.
+on first launch without a saved `[Hotkeys] ToggleVK`, a **keyboard-only
+keybinding wizard** appears. Choose F6–F9, F11–F12, Insert, Home, End,
+PageUp or PageDown, and press **Enter** to save. **Esc** hides setup;
+**F8** reopens it until a key is saved. F10 is reserved for CET.
+The saved key then toggles the render-only workspace. Existing numeric
+`ToggleVK` takes precedence over `[Experimental] ToggleKey`. The game
+also sees wizard keypresses, so use the main/pause menu. Mouse controls
+are NOT clickable. Remove NCREC.ini to restore safe loader-only mode.
 
 Workflow: [Development RED4ext DLL](.github/workflows/development-build.yml).
 
@@ -66,6 +69,14 @@ By default only RED4ext load/unload log messages are expected.
 The old ASI remains *opt-in* for developers only:
 `-DNCREC_BUILD_PLUGIN=ON -DNCREC_BUILD_RED4EXT=OFF`.
 **Do not distribute it as the stable editor.**
+
+## Input ownership safety gate
+
+The portable `src/core/EditorInputGate.hpp` contract is tested for
+denied acquisition, focus loss, hide and shutdown. It requires an actual
+engine adapter to grant **both** cursor access and suppression of game
+controls. No such adapter is connected yet: the fullscreen RED4ext UI
+is still render-only, and the legacy ASI message-hook trap stays disabled.
 
 ## Goals
 
