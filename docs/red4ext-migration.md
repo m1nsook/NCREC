@@ -64,6 +64,27 @@ The requested interface is a fixed, fullscreen application shell:
 
 The full-screen ImGui view now exists as `src/editor/FullscreenEditor.cpp` and is **compiled and checked** by the RED4ext build. It is intentionally **not called by the DLL**. Activating a renderer before verifying cursor ownership, pause-mode boundaries and DX12 lifecycle would repeat the instability that was reported.
 
+## Verified game test — 2026-11-17
+
+The owner installed the **NCREC v0.2.0 RED4ext bootstrap** and completed
+all six manual checklist items on **Cyberpunk 2077 v2.50 / RED4ext v1.31.1**:
+
+- Prior NCREC.asi removed
+- Development ZIP extracted to the game
+- Game launches to main menu
+- NCREC load message present in RED4ext logs
+- Mouse and keyboard remain functional
+- Alt+F4 and normal exit function
+
+The logs also explicitly show NCREC's Load and Unload callbacks, and the
+RED4ext host loaded and shut down without any logged NCREC errors.
+
+**This validates only the loader-only bootstrap and basic input
+non-interference.** It does not validate active-gameplay overlay rendering,
+cursor takeover, DX12 hook lifecycle, freecam, or camera writes.
+
+See [test report](test-reports/2026-11-17-red4ext-bootstrap.md).
+
 ## Acceptance gates before enabling the editor
 
 1. Verify the RED4ext DLL loads/unloads cleanly on Cyberpunk 2.5, with logs.
