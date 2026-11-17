@@ -7,7 +7,7 @@ This is the authoritative development snapshot, not a stable game release.
 Completed work moves to `main` after build/tests; no indefinite nested draft PRs.
 
 - `src/core/` — camera math, camera-path serialization and editor state
-- `src/editor/` — fullscreen composition calculations (and future native ImGui layout)
+- `src/editor/` — fullscreen geometry and compiled ImGui app shell (currently not activated by DLL)
 - `src/platform/red4ext/` — new native DLL host
 - `src/platform/GameOverlay.cpp` and `src/platform/dx12/` — **legacy ASI experiment**; do not install for normal play
 - `design/demo.html` — owner-provided full-screen design target

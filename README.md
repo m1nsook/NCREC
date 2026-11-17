@@ -15,7 +15,7 @@ Cinematic camera-path editor for Cyberpunk 2077.
 | What you're looking for | Path on `main` |
 | --- | --- |
 | New RED4ext DLL entry point | `src/platform/red4ext/Plugin.cpp` |
-| Fullscreen layout geometry | `src/editor/WorkspaceLayout.*` |
+| Fullscreen ImGui shell and layout geometry | `src/editor/FullscreenEditor.*`, `src/editor/WorkspaceLayout.*` |
 | Camera paths, keyframes, JSON projects | `src/core/` |
 | Your fullscreen UI reference | `design/demo.html` |
 | Previous, unstable ASI/ImGui UI | `src/platform/GameOverlay.cpp` |

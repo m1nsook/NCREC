@@ -62,9 +62,7 @@ The requested interface is a fixed, fullscreen application shell:
 - The portable `calculateWorkspace()` function computes all panel
   coordinates without requiring ImGui to be initialized.
 
-The new RED4ext DLL **does not display this interface yet**. Activating
-a renderer before verifying cursor ownership, pause-mode boundaries and
-DX12 lifecycle would repeat the instability that was reported.
+The full-screen ImGui view now exists as `src/editor/FullscreenEditor.cpp` and is **compiled and checked** by the RED4ext build. It is intentionally **not called by the DLL**. Activating a renderer before verifying cursor ownership, pause-mode boundaries and DX12 lifecycle would repeat the instability that was reported.
 
 ## Acceptance gates before enabling the editor
 
