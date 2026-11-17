@@ -26,6 +26,22 @@ New features use a short-lived `feature/*` branch and one reviewable PR;
 experimental gameplay hooks remain **off** until verified in Cyberpunk.
 See [development workflow](docs/REPOSITORY.md).
 
+## Download a development build (no compiling required)
+
+The [**development-build prerelease**](https://github.com/m1nsook/NCREC/releases/tag/development-build)
+is updated automatically after successful builds and tests on **main**.
+Download NCREC-development-build.zip and extract it to your Cyberpunk 2077
+installation. The ZIP contains red4ext/plugins/NCREC/NCREC.dll and license
+notices. **Remove any old bin/x64/plugins/NCREC.asi first.**
+
+**What to test today?** Only that the DLL loads without breaking startup,
+mouse input or Alt+F4, and that the RED4ext log says
+"NCREC RED4ext host loaded (bootstrap only)". No NCREC window will appear
+until renderer and input ownership are verified. This is a development
+test, not a stable release.
+
+Workflow: [Development RED4ext DLL](.github/workflows/development-build.yml).
+
 ## Build the safe RED4ext DLL
 
 Windows x64 / Visual Studio 2022 / CMake 3.24+:

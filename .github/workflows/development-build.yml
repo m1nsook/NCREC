@@ -1,0 +1,156 @@
+name: Development RED4ext DLL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ncrec-development-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-development-dll:
+    name: Build / test / package Windows DLL
+    runs-on: windows-2022
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure RED4ext (legacy ASI disabled)
+        run: cmake -S . -B build-dev -A x64 -DNCREC_BUILD_PLUGIN=OFF -DNCREC_BUILD_RED4EXT=ON
+
+      - name: Build DLL and native tests
+        run: cmake --build build-dev --config Release --target NCREC_RED4ext ncrec_core_tests
+
+      - name: Run tests
+        run: ctest --test-dir build-dev -C Release --output-on-failure
+
+      - name: Stage game-installable ZIP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'ncrec-package'
+          $plugin = Join-Path $root 'red4ext/plugins/NCREC'
+          $notices = Join-Path $root 'licenses'
+          New-Item -ItemType Directory -Force $plugin, $notices | Out-Null
+
+          $dll = 'build-dev/red4ext/plugins/NCREC/Release/NCREC.dll'
+          if (-not (Test-Path $dll)) { throw "NCREC.dll build output missing: $dll" }
+          Copy-Item $dll (Join-Path $plugin 'NCREC.dll')
+          Copy-Item LICENSE (Join-Path $root 'LICENSE.txt')
+          Copy-Item 'licenses/RED4ext-SDK-MIT.txt' (Join-Path $notices 'RED4ext-SDK-MIT.txt')
+          Copy-Item 'licenses/nlohmann-json-MIT.txt' (Join-Path $notices 'nlohmann-json-MIT.txt')
+
+          $readme = @'
+          NCREC DEVELOPMENT BUILD - RED4ext loader test
+          ============================================
+
+          THIS VERSION DOES NOT DISPLAY AN NCREC WINDOW.
+          The fullscreen editor is compiled but is NOT connected to the DLL.
+          There is NO in-game camera movement, keyframe capture or freecam.
+
+          INSTALL
+          1. Make sure a game-version-compatible RED4ext loader is installed.
+          2. REMOVE the old bin/x64/plugins/NCREC.asi. Never run both.
+          3. Copy the ZIP's red4ext folder into your Cyberpunk 2077 folder.
+          4. Start Cyberpunk 2077.
+
+          TEST ONLY
+          - Game launches and reaches the menu without crashes.
+          - RED4ext logs contain "NCREC RED4ext host loaded (bootstrap only)."
+          - Mouse and keyboard work normally in menu and gameplay.
+          - Alt+F4 exits normally; game closes normally.
+          - No NCREC UI appears (EXPECTED FOR THIS BUILD).
+
+          NOT IMPLEMENTED YET
+          - Fullscreen NCREC overlay and camera editor
+          - Freecam and in-game keyframes
+          - OBS integration
+
+          If startup fails, remove red4ext/plugins/NCREC/NCREC.dll
+          and verify that your installed RED4ext matches your game version.
+          This is a test prerelease, NOT a stable mod.
+          '@
+          Set-Content -Path (Join-Path $root 'README-TESTING.txt') -Value $readme -Encoding utf8
+
+          $archive = Join-Path $env:GITHUB_WORKSPACE 'NCREC-development-build.zip'
+          Compress-Archive -Path (Join-Path $root '*') -DestinationPath $archive -Force
+          if (-not (Test-Path $archive)) { throw 'Development ZIP missing' }
+
+          $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          Set-Content -Path 'NCREC-development-build.sha256' -Encoding ascii -Value "$hash  NCREC-development-build.zip"
+
+      - name: Store build artifact (also available in PR checks)
+        uses: actions/upload-artifact@v4
+        with:
+          name: NCREC-RED4ext-development-build
+          path: |
+            NCREC-development-build.zip
+            NCREC-development-build.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-development-release:
+    name: Update rolling development-build prerelease
+    needs: build-development-dll
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: NCREC-RED4ext-development-build
+          path: dist
+
+      - name: Publish or update development-build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="development-build"
+          archive="dist/NCREC-development-build.zip"
+          checksum="dist/NCREC-development-build.sha256"
+          test -s "$archive"
+          test -s "$checksum"
+          cat > release-notes.md <<EOF
+          **NCREC experimental RED4ext build — NOT a stable release.**
+
+          Built from main commit $GITHUB_SHA.
+          Source: https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA
+          CI: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+
+          **This DLL is a startup/lifecycle test only. It does not show
+          the NCREC fullscreen editor, modify the game camera or capture paths.**
+
+          **Install:** Download NCREC-development-build.zip. Remove any old
+          bin/x64/plugins/NCREC.asi. Extract into the Cyberpunk 2077 game
+          folder. Requires a game-compatible RED4ext loader.
+
+          **Test:** Normal startup, NCREC RED4ext load log, working mouse and
+          keyboard, Alt+F4, and a clean exit. No NCREC window is expected.
+
+          The ZIP includes red4ext/plugins/NCREC/NCREC.dll,
+          README-TESTING.txt, and third-party license notices.
+          EOF
+
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
+              --title "NCREC development-build (RED4ext loader test)" \
+              --prerelease --latest=false --target "$GITHUB_SHA" \
+              --notes-file release-notes.md
+            gh release upload "$tag" "$archive" "$checksum" \
+              --repo "$GITHUB_REPOSITORY" --clobber
+            # Move the rolling tag only after uploading a tested replacement.
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" \
+              -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          else
+            gh release create "$tag" "$archive" "$checksum" \
+              --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "NCREC development-build (RED4ext loader test)" \
+              --prerelease --latest=false --notes-file release-notes.md
+          fi
