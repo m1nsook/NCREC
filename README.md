@@ -3,31 +3,43 @@
 # NCREC
 Cinematic camera editor for Cyberpunk 2077, inspired by HLAE's mirv_campath.
 
-> **Early development / v0.1 prototype.** The current build does **not**
-> control Cyberpunk's camera yet. Do not expect working cinematic capture.
+> **Experimental DX12 renderer branch.** This build replaces the separate
+> Win32 editor window with an in-game Dear ImGui layer that renders directly
+> into Cyberpunk's DX12 swapchain. **No Cyberpunk camera control yet.**
+> The base DX12 overlay has been reported working in Cyberpunk 2.5.
+> The **new first-launch wizard, settings and embedded fonts still need
+> in-game verification** before this draft branch is considered stable.
 
 ## Goals
 
-- A **dedicated interface and console**, independent of the CET overlay.
-- Timestamped camera paths with precise editing and smooth interpolation.
-- Reliable save/load and repeatable cinematic camera motion.
-- Eventually, optional OBS Studio recording automation and plugin support.
+- **Dedicated UI and console**, independent of CET.
+- Keyframed cinematic camera paths with precise editing and interpolation.
+- Save/load project files and repeatable shots.
+- Optional OBS WebSocket and a future OBS Studio frontend plugin.
 
 ## Current prototype
 
-- Portable C++20 camera path model: time-aware cubic Hermite/linear positions,
-  shortest-arc quaternion rotations and FOV interpolation.
-- A command/timeline preview with `help`, `status`, `path demo`,
-  `path list`, `path play`, `path pause`, `path seek <seconds>`,
-  `path sample <seconds>` and `path clear`.
-- Windows x64 `NCREC.asi` with its **own Win32/D3D11 Dear ImGui editor window**.
-  **This is a separate window, not a DX12 injection/game renderer hook.**
-- Unit tests and GitHub Actions CI.
+- Cross-platform C++20 camera path interpolation: cubic Hermite/linear
+  positions, quaternion SLERP, FOV blending.
+- `help`, `status`, `path demo`, `path list`, `path play`, `path pause`,
+  `path seek <seconds>`, `path sample <seconds>` and `path clear`.
+- Experimental Windows x64 ASI with **actual in-game DX12 ImGui renderer**,
+  not an always-on-top secondary Win32 window.
+- On a **fresh installation**, an automatic in-game welcome screen asks
+  for a single toggle key; no default shortcut or multi-key combination.
+  Press one key, review the selection and click **Save and finish**.
+- Existing named-key settings migrate automatically; saved keys are retained.
+  Change the key later in the **Settings** tab.
+- Modern dark interface with Inter for UI and JetBrains Mono for the console,
+  both **embedded in NCREC.asi**. Appearance settings include UI scaling.
+- Separate **Timeline**, **Console** and **Settings** views. Escape and
+  **Hide UI** close the main editor after setup.
+- Unit tests and Windows/Linux CI.
 
 ## Build
 
-Requirements: Windows 10/11, Visual Studio 2022 C++ tools, CMake 3.24+,
-internet access at configure time to fetch a pinned Dear ImGui revision.
+Windows 10/11, Visual Studio 2022 C++ tools and CMake 3.24+.
+Configuration requires network access for pinned Dear ImGui and MinHook.
 
 ```powershell
 cmake -S . -B build -A x64 -DNCREC_BUILD_PLUGIN=ON
@@ -37,7 +49,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 Output: `build/bin/x64/plugins/Release/NCREC.asi`
 
-Core-only development is supported on Linux/macOS:
+Core-only tests without Windows or Cyberpunk:
 
 ```sh
 cmake -S . -B build -DNCREC_BUILD_PLUGIN=OFF
@@ -47,30 +59,51 @@ ctest --test-dir build --output-on-failure
 
 ## Experimental installation
 
-1. Use Cyberpunk 2077 in **borderless or windowed mode**.
-2. Install the **x64 Ultimate ASI Loader** as `bin/x64/version.dll` if you do
-   not already have a compatible ASI loader. CET itself is **not required**.
-   Avoid overwriting an existing loader without checking your setup.
-3. Copy `NCREC.asi` to `<Cyberpunk 2077>/bin/x64/plugins/NCREC.asi`.
-4. Launch Cyberpunk. Press the **grave / tilde key** (usually immediately
-   left of `1`) **once** to open/close NCREC. No Ctrl, Shift, Alt or Fn.
-   In the editor, use **Focus console** to enter commands, **Esc** to close,
-   or click **Close editor**. If CET or another mod already uses the grave key,
-   the prototype tries **Insert** as a fallback.
-   Choose a different **single key** under `Toggle key (one press)` in the
-   NCREC window. Your choice is saved in `bin/x64/plugins/NCREC.ini`.
-   Some keys, such as Caps Lock, may conflict with in-game controls.
-5. Check `bin/x64/plugins/NCREC.log` for bootstrap logs. In the console,
-   run `path demo` and `path play` to preview **math only**, not the camera.
+1. Back up the current working NCREC ASI before trying the DX12 branch.
+2. Install/retain an x64 compatible ASI loader, such as Ultimate ASI Loader,
+   only if your setup needs it; avoid overwriting existing mod loaders.
+3. Copy the built `NCREC.asi` to `<Cyberpunk 2077>/bin/x64/plugins/`.
+4. On your **first launch without a saved bind**, NCREC opens a centered
+   welcome window automatically. Press a single key and select
+   **Save and finish**. The wizard closes.
+5. Press the chosen key to reopen NCREC. Use **Settings** to change the
+   key or UI scale, or **Console** to type `path demo` and `path play`
+   (math preview only).
+6. If you previously used NCREC, your existing `[Hotkeys] Toggle`
+   entry should be migrated. New key codes are saved in
+   `bin/x64/plugins/NCREC.ini` as `[Hotkeys] ToggleVK`.
+7. Test a desktop screenshot with NCREC visible. A DX12 capture pipeline
+   should include the overlay if capturing the final frame, but **some
+   capture integrations may hook earlier and omit it**.
 
-**Compatibility note:** The initial UI is a separate topmost Windows window
-created inside the game process. It is not part of Cyberpunk's DX12 backbuffer,
-does not support exclusive-fullscreen rendering, and has not yet been validated
-against game versions or other overlays. The game camera, OBS integration,
-recording, save/load and frame stepping are **not implemented**.
+The UI no longer automatically hides on Alt+Tab. It belongs to the game
+framebuffer, so when the game stops rendering while out of focus, the last
+rendered frame remains visible; it is not a separate desktop window.
 
-See [architecture](docs/architecture.md) and [roadmap](docs/roadmap.md).
+**Known limitations:** The camera adapter, recording integration and project
+save/load are not implemented. This experimental hook intercepts DXGI APIs and
+may conflict with CET/ReShade/other injectors. Test carefully and report logs
+and game version. The new onboarding UI/font integration needs game validation. CI only
+proves that the code compiles and core tests pass. See
+[architecture](docs/architecture.md), [UI design](docs/ui-design.md),
+[roadmap](docs/roadmap.md), and [third-party notices](docs/third_party.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+NCREC source: MIT; see [LICENSE](LICENSE). Vendored DX12 hook license is in
+[src/platform/dx12/LICENSE](src/platform/dx12/LICENSE). Embedded font
+licenses: [Inter OFL](licenses/Inter-OFL.txt) and
+[JetBrains Mono OFL](licenses/JetBrainsMono-OFL.txt).
+
+### Emergency recovery and mouse capture
+
+The first-run wizard has a keyboard-only fallback: after choosing a key,
+press **Enter** to save. **Esc** hides the overlay in an emergency, and **F10**
+reopens first-run setup if no key has been saved. **Alt+F4** is passed through to
+Cyberpunk rather than intercepted by NCREC. The input layer also attempts to
+unclip the game's mouse and use relative RawInput if the pointer stays locked.
+This behavior is experimental and requires real-game testing.
+
+If NCREC makes the game unresponsive, remove `NCREC.asi` from
+`bin/x64/plugins/` before launching again. Do not use the prior trapped-input
+build.
