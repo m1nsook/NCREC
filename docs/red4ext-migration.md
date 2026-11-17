@@ -6,7 +6,8 @@ RED4ext requires its own exported plugin API and explicit lifecycle.
 
 ## Branch and installed files
 
-Development branch: `feature/red4ext-host`.
+The source is consolidated into the default **`main`** branch after CI checks.
+Open feature PRs are work in progress, not another location to hunt for files.
 
 - Old experiment: `bin/x64/plugins/NCREC.asi` (Ultimate ASI Loader).
 - New bootstrap: `red4ext/plugins/NCREC/NCREC.dll` (RED4ext runtime).
@@ -20,7 +21,7 @@ out of the game's plugin directory before testing the RED4ext DLL.
 - Implements RED4ext **API v1** `Supports`, `Query` and `Main` exports
   using the pinned 1.0.0 SDK.
 - Sends load/unload diagnostics to the RED4ext logger.
-- Refuses to initialize if the legacy \`NCREC.asi\` is already present in the process.
+- Refuses to initialize if the legacy `NCREC.asi` is already present in the process.
 - Does not install a DirectX hook, create another window, acquire input or
   access/modify game memory.
 - Deliberately uses `RED4EXT_V1_RUNTIME_VERSION_INDEPENDENT` **only** because

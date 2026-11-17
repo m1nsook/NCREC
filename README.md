@@ -1,37 +1,49 @@
 <img width="250" height="126" alt="ncrec-logotype" src="https://github.com/user-attachments/assets/708117dd-40b8-458c-8310-0219b7f2c154" />
 
 # NCREC
-Cinematic camera editor for Cyberpunk 2077, inspired by HLAE's mirv_campath.
+Cinematic camera-path editor for Cyberpunk 2077.
 
-> **Migration in progress:** `feature/red4ext-host` introduces a separate
-> **RED4ext DLL** alongside the existing experimental ASI. The DLL currently
-> logs startup/shutdown **only**; it intentionally does not display the editor,
-> alter input, hook DirectX or control Cyberpunk's camera. The ASI prototype
-> remains available for comparison, but its gameplay input stability is not
-> verified. Do not install both versions simultaneously.
+> **Source of truth: [main](https://github.com/m1nsook/NCREC/tree/main).**
+> This project is **in active development, not a stable in-game release**.
+> The native RED4ext DLL currently **logs startup/shutdown only**; it does
+> not draw a UI, take over cursor input, or modify the game camera.
+> The old ASI renderer is retained in source solely as an **unstable legacy
+> experiment**. Don't install both.
 
-## RED4ext DLL migration (safe bootstrap)
+## Find your files
 
-The new native loader target builds `NCREC.dll` for **RED4ext**, rather than
-renaming the existing ASI. It implements RED4ext SDK 1.0's API-v1
-`Supports`, `Query`, and `Main`, uses the RED4ext logger, and does not
-install camera, input or render hooks while game-version support is researched.
+| What you're looking for | Path on `main` |
+| --- | --- |
+| New RED4ext DLL entry point | `src/platform/red4ext/Plugin.cpp` |
+| Fullscreen layout geometry | `src/editor/WorkspaceLayout.*` |
+| Camera paths, keyframes, JSON projects | `src/core/` |
+| Your fullscreen UI reference | `design/demo.html` |
+| Previous, unstable ASI/ImGui UI | `src/platform/GameOverlay.cpp` |
+| RED4ext migration and validation | `docs/red4ext-migration.md` |
+
+**Repository policy:** Completed, CI-tested work goes to `main`.
+New features use a short-lived `feature/*` branch and one reviewable PR;
+experimental gameplay hooks remain **off** until verified in Cyberpunk.
+See [development workflow](docs/REPOSITORY.md).
+
+## Build the safe RED4ext DLL
+
+Windows x64 / Visual Studio 2022 / CMake 3.24+:
 
 ```powershell
-cmake -S . -B build-red4ext -A x64 -DNCREC_BUILD_PLUGIN=OFF -DNCREC_BUILD_RED4EXT=ON
-cmake --build build-red4ext --config Release --target NCREC_RED4ext
-ctest --test-dir build-red4ext -C Release --output-on-failure
+cmake -S . -B build -A x64
+cmake --build build --config Release --target NCREC_RED4ext
+ctest --test-dir build -C Release --output-on-failure
 ```
 
-Install the resulting `NCREC.dll` into
-`Cyberpunk 2077/red4ext/plugins/NCREC/` with a compatible RED4ext loader.
-**Remove or disable the old `NCREC.asi` first.** This initial DLL has no
-overlay and should only produce RED4ext load/unload logs.
+The DLL lands in `build/red4ext/plugins/NCREC/Release/NCREC.dll` and
+requires a compatible RED4ext loader installed with Cyberpunk.
+**Remove `bin/x64/plugins/NCREC.asi` before testing the DLL.**
+Only RED4ext load/unload log messages are expected right now.
 
-The target fullscreen, fixed-panel UI is being rebuilt from your
-`demo.html` layout. Portable layout geometry and tests are in
-`src/editor/WorkspaceLayout.*`. Actual DLL UI/input integration is gated
-on lifecycle and cursor stability. Details: [migration plan](docs/red4ext-migration.md).
+The old ASI remains *opt-in* for developers only:
+`-DNCREC_BUILD_PLUGIN=ON -DNCREC_BUILD_RED4EXT=OFF`.
+**Do not distribute it as the stable editor.**
 
 ## Goals
 
@@ -113,8 +125,7 @@ The UI no longer automatically hides on Alt+Tab. It belongs to the game
 framebuffer, so when the game stops rendering while out of focus, the last
 rendered frame remains visible; it is not a separate desktop window.
 
-**Known limitations:** The camera adapter, recording integration and project
-save/load are not implemented. This experimental hook intercepts DXGI APIs and
+**Known limitations of the legacy ASI:** Live camera access and recording integration are not implemented. JSON path save/load is implemented for the virtual camera. This experimental hook intercepts DXGI APIs and
 may conflict with CET/ReShade/other injectors. Test carefully and report logs
 and game version. The new onboarding UI/font integration needs game validation. CI only
 proves that the code compiles and core tests pass. See

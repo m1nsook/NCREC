@@ -38,7 +38,7 @@ if(BUILD_TESTING)
     add_test(NAME ncrec_core_tests COMMAND ncrec_core_tests)
 endif()
 
-option(NCREC_BUILD_PLUGIN "Build experimental DX12 in-game editor ASI" ${WIN32})
+option(NCREC_BUILD_PLUGIN "Build legacy unstable DX12 ASI (experimental, opt-in)" OFF)
 if(NCREC_BUILD_PLUGIN)
     if(NOT WIN32)
         message(FATAL_ERROR "The ASI plugin requires Windows.")
@@ -130,7 +130,7 @@ endif()
 
 # RED4ext is a separate native loader target, NOT an ASI renamed to DLL.
 # The first milestone deliberately does not hook rendering or game memory.
-option(NCREC_BUILD_RED4EXT "Build the safe RED4ext loader-only DLL" OFF)
+option(NCREC_BUILD_RED4EXT "Build safe RED4ext host DLL (no UI yet)" ${WIN32})
 if(NCREC_BUILD_RED4EXT)
     if(NOT WIN32)
         message(FATAL_ERROR "RED4ext plugins require Windows x64.")
