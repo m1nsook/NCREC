@@ -6,7 +6,7 @@ Cinematic camera-path editor for Cyberpunk 2077.
 > **Source of truth: [main](https://github.com/m1nsook/NCREC/tree/main).**
 > This project is **in active development, not a stable in-game release**.
 > The native RED4ext DLL **defaults to a safe loader-only mode**. An
-> **opt-in F10 fullscreen rendering preview** is available for Cyberpunk 2.50,
+> **opt-in F8 fullscreen rendering preview** is available for Cyberpunk 2.50,
 > but it is NOT INTERACTIVE and is still untested in-game. Camera and input
 > ownership remain disabled.
 > The old ASI renderer is retained in source solely as an **unstable legacy
@@ -39,9 +39,11 @@ notices. **Remove any old bin/x64/plugins/NCREC.asi first.**
 **Default mode:** the previously verified loader-only startup test. No
 NCREC window appears. **Optional new visual test:** rename the included
 `red4ext/plugins/NCREC/NCREC-preview.ini.example` to `NCREC.ini`, then
-press **F10** at the main/pause menu to show/hide the **render-only**
-fullscreen workspace. Do not try to click its controls yet; game input is
-intentionally unchanged. If unstable, remove NCREC.ini to restore the safe
+press **F8** at the main/pause menu to show/hide the **render-only**
+fullscreen workspace. Set `ToggleKey=F8` in
+`[Experimental]` to another supported single key (F6-F12, Insert,
+Home, End, PageUp, PageDown) if needed. CET can stay on F10.
+Do not try to click its controls yet; game input is intentionally unchanged. If unstable, remove NCREC.ini to restore the safe
 default. This is a development test, not a stable release.
 
 Workflow: [Development RED4ext DLL](.github/workflows/development-build.yml).

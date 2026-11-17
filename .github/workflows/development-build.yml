@@ -66,9 +66,12 @@ jobs:
              to NCREC.ini.
           2. Start Cyberpunk 2077 version 2.50.
           3. Stay at the main menu or open the pause/ESC screen.
-          4. Press F10 to show/hide the fullscreen editor layout.
+          4. Press F8 to show/hide the fullscreen editor layout.
+             You can change [Experimental] ToggleKey=F8 in NCREC.ini
+             to F6-F12, Insert, Home, End, PageUp or PageDown.
+             CET can keep its F10 binding.
           5. Check image stability, fullscreen layout and scrolling.
-          6. Verify F10 closes it and Alt+F4 can still exit.
+          6. Verify F8 closes it and Alt+F4 can still exit.
 
           WARNING
           - NOT INTERACTIVE. Mouse and keyboard still belong to the game.
@@ -133,12 +136,14 @@ jobs:
           **Default:** previously verified RED4ext loader-only startup. Nothing
           appears in-game unless the optional preview is enabled.
 
-          **Experimental F10 render-only preview:** rename
+          **Experimental F8 render-only preview:** rename
           red4ext/plugins/NCREC/NCREC-preview.ini.example to NCREC.ini,
-          launch Cyberpunk 2077 v2.50, and press F10 at the main/pause menu.
+          launch Cyberpunk 2077 v2.50, and press F8 at the main/pause menu.
           This draws the fullscreen ImGui layout but DOES NOT acquire input,
           freeze the game or manipulate the camera. The buttons are NOT
-          interactive yet. F10 toggles visibility without swallowing keys.
+          interactive yet. F8 toggles visibility without swallowing keys.
+          The single-key toggle is configurable with NCREC.ini ToggleKey,
+          so other overlays such as CET may keep their own bindings.
 
           **Install:** download NCREC-development-build.zip, remove any old
           bin/x64/plugins/NCREC.asi, extract into the Cyberpunk 2077 folder.

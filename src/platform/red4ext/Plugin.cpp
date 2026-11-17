@@ -16,26 +16,63 @@
 #include <array>
 #include <filesystem>
 #include <string>
+#include <cwctype>
+#include <algorithm>
 
 namespace {
 std::atomic_bool g_loaded{false};
 bool g_probeStarted{};
+
+std::filesystem::path pluginIni(HMODULE module) {
+    if (!module) return {};
+    std::array<wchar_t, 32768> modulePath{};
+    const DWORD count = GetModuleFileNameW(
+        module, modulePath.data(), static_cast<DWORD>(modulePath.size()));
+    if (!count || count >= modulePath.size()) return {};
+    return std::filesystem::path(std::wstring(modulePath.data(), count))
+        .parent_path() / L"NCREC.ini";
+}
+
+// Single-key, configurable and intentionally independent of CET's binding.
+// Keep Windows system keys and modifier combinations untouched.
+UINT readPreviewKey(const std::filesystem::path& ini) {
+    wchar_t buffer[64]{};
+    GetPrivateProfileStringW(
+        L"Experimental", L"ToggleKey", L"F8",
+        buffer, static_cast<DWORD>(std::size(buffer)), ini.c_str());
+    std::wstring key(buffer);
+    key.erase(key.begin(), std::find_if(key.begin(), key.end(),
+        [](wchar_t c) { return std::iswspace(c) == 0; }));
+    while (!key.empty() && std::iswspace(key.back())) key.pop_back();
+    std::transform(key.begin(), key.end(), key.begin(),
+        [](wchar_t c) { return static_cast<wchar_t>(std::towupper(c)); });
+
+    if (key.size() >= 2 && key[0] == L'F') {
+        const std::wstring digits = key.substr(1);
+        unsigned number = 0;
+        for (wchar_t digit : digits) {
+            if (digit < L'0' || digit > L'9') return VK_F8;
+            number = number * 10 + static_cast<unsigned>(digit - L'0');
+            if (number > 12) return VK_F8;
+        }
+        if (number >= 6 && number <= 12)
+            return static_cast<UINT>(VK_F1 + number - 1);
+    }
+    if (key == L"INSERT" || key == L"INS") return VK_INSERT;
+    if (key == L"HOME") return VK_HOME;
+    if (key == L"END") return VK_END;
+    if (key == L"PAGEUP" || key == L"PGUP") return VK_PRIOR;
+    if (key == L"PAGEDOWN" || key == L"PGDN") return VK_NEXT;
+    return VK_F8; // A safe single-key fallback, never a modifier or Alt+F4.
+}
 
 bool passiveProbeRequested(const RED4ext::v1::Sdk* sdk) noexcept {
     if (!sdk || !sdk->runtime || sdk->runtime->major != 2 ||
         sdk->runtime->minor != 5 || sdk->runtime->patch != 0) {
         return false; // Tested only on Cyberpunk's reported product v2.50.
     }
-    const HMODULE module = GetModuleHandleW(L"NCREC.dll");
-    if (!module) return false;
-
-    std::array<wchar_t, 32768> modulePath{};
-    const DWORD count = GetModuleFileNameW(
-        module, modulePath.data(), static_cast<DWORD>(modulePath.size()));
-    if (!count || count >= modulePath.size()) return false;
-
-    const auto ini = std::filesystem::path(
-        std::wstring(modulePath.data(), count)).parent_path() / L"NCREC.ini";
+    const auto ini = pluginIni(GetModuleHandleW(L"NCREC.dll"));
+    if (ini.empty()) return false;
     return GetPrivateProfileIntW(
         L"Experimental", L"PassiveFullscreen", 0, ini.c_str()) == 1;
 }
@@ -71,11 +108,14 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
             logInfo(handle, sdk, "NCREC RED4ext host loaded.");
             const HMODULE module = GetModuleHandleW(L"NCREC.dll");
             if (passiveProbeRequested(sdk) && module) {
-                g_probeStarted = ncrec::platform::red4ext::startPassiveFullscreen(module);
+                const UINT toggleKey = readPreviewKey(pluginIni(module));
+                g_probeStarted = ncrec::platform::red4ext::startPassiveFullscreen(
+                    module, toggleKey);
                 if (g_probeStarted) {
                     logInfo(handle, sdk,
                         "EXPERIMENTAL passive fullscreen renderer initialized; "
-                        "press F10 in-game. No input ownership or camera hooks.");
+                        "Toggle key is configurable in NCREC.ini. "
+                        "No input ownership or camera hooks.");
                 } else if (sdk && sdk->logger && sdk->logger->Error) {
                     sdk->logger->Error(handle, "NCREC passive preview failed to initialize.");
                 }
