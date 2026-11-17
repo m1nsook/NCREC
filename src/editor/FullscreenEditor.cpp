@@ -1,6 +1,7 @@
 #include "editor/FullscreenEditor.hpp"
 
 #include "editor/WorkspaceLayout.hpp"
+#include "editor/FontAwesomeIcons.hpp"
 #include "core/Session.hpp"
 
 #include <imgui.h>
@@ -39,6 +40,22 @@ constexpr ImGuiWindowFlags kFixedFlags =
     ImGuiWindowFlags_NoSavedSettings;
 
 ImVec2 plus(ImVec2 a, float dx, float dy) { return {a.x + dx, a.y + dy}; }
+
+// Missing icon resource must leave a readable text-only editor.
+bool iconsLoaded() {
+    ImFont* font = ImGui::GetFont();
+    return font && font->FindGlyphNoFallback(0xf03d) != nullptr;
+}
+std::string withIcon(const char* glyph, const char* label) {
+    return iconsLoaded() ? std::string(glyph) + "  " + label : label;
+}
+void drawIconAt(ImDrawList* d, ImVec2 center, const char* glyph,
+                ImU32 color, float size) {
+    ImFont* font = ImGui::GetFont();
+    const ImVec2 extent = font->CalcTextSizeA(size, 10000.0f, 0.0f, glyph);
+    d->AddText(font, size, plus(center, -extent.x * .5f, -extent.y * .5f),
+               color, glyph);
+}
 
 void smallText(ImDrawList* d, ImVec2 p, ImU32 color, const char* value, float size = 11.0f) {
     d->AddText(ImGui::GetFont(), size, p, color, value);
@@ -98,12 +115,17 @@ void endPanel() {
 }
 
 // The header is an actual 32px surface, not a Text+Separator widget.
-void panelHeading(Rect rect, const char* title) {
+void panelHeading(Rect rect, const char* title, const char* glyph = nullptr) {
     const ImVec2 p(rect.x, rect.y);
     ImDrawList* d = ImGui::GetWindowDrawList();
     d->AddRectFilled(p, plus(p, rect.width, 32), kHeader32);
     d->AddLine(plus(p, 0, 31.5f), plus(p, rect.width, 31.5f), kBorder32);
-    smallText(d, plus(p, 12, 9), kMuted32, title);
+    if (glyph && iconsLoaded()) {
+        smallText(d, plus(p, 12, 9), kMuted32, glyph, 12);
+        smallText(d, plus(p, 31, 9), kMuted32, title);
+    } else {
+        smallText(d, plus(p, 12, 9), kMuted32, title);
+    }
     ImGui::SetCursorScreenPos(plus(p, 16, 48));
 }
 
@@ -142,10 +164,10 @@ void dashedRect(ImDrawList* d, ImVec2 a, ImVec2 b, ImU32 col) {
 void drawTopBar(Session& session, FullscreenEditorState& ui, Rect rect) {
     if (!beginPanel("##NCRECTopBar", rect, kHeader)) return;
     ImGui::SetCursorScreenPos({rect.x + 16, rect.y + 9});
-    ImGui::TextColored(kAccent, "NCREC");
-    ImGui::SameLine(92);
+    ImGui::TextColored(kAccent, "%s", withIcon(fa::video, "NCREC").c_str());
+    ImGui::SameLine(112);
     ImGui::SetCursorPosY(5);
-    if (ImGui::Button("File")) ImGui::OpenPopup("NCRECFile");
+    if (ImGui::Button(withIcon(fa::file, "File").c_str())) ImGui::OpenPopup("NCRECFile");
     if (ImGui::BeginPopup("NCRECFile")) {
         if (ImGui::MenuItem("New shot")) runCommand(session, ui, "path clear");
         if (ImGui::MenuItem("Save shot")) saveShot(session, ui);
@@ -153,14 +175,14 @@ void drawTopBar(Session& session, FullscreenEditorState& ui, Rect rect) {
         ImGui::EndPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Edit")) ImGui::OpenPopup("NCRECEdit");
+    if (ImGui::Button(withIcon(fa::edit, "Edit").c_str())) ImGui::OpenPopup("NCRECEdit");
     if (ImGui::BeginPopup("NCRECEdit")) {
         ImGui::MenuItem("Undo (coming later)", nullptr, false, false);
         ImGui::MenuItem("Redo (coming later)", nullptr, false, false);
         ImGui::EndPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("View")) ImGui::OpenPopup("NCRECView");
+    if (ImGui::Button(withIcon(fa::eye, "View").c_str())) ImGui::OpenPopup("NCRECView");
     if (ImGui::BeginPopup("NCRECView")) {
         if (ImGui::MenuItem("Inspector: Timeline")) ui.inspector = InspectorTab::Camera;
         if (ImGui::MenuItem("Inspector: Console")) ui.inspector = InspectorTab::Console;
@@ -168,16 +190,16 @@ void drawTopBar(Session& session, FullscreenEditorState& ui, Rect rect) {
         ImGui::EndPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Playback"))
+    if (ImGui::Button(withIcon(fa::play, "Playback").c_str()))
         runCommand(session, ui, session.playing() ? "path pause" : "path play");
     ImGui::SameLine();
-    if (ImGui::Button("Window")) ImGui::OpenPopup("NCRECWindow");
+    if (ImGui::Button(withIcon(fa::window, "Window").c_str())) ImGui::OpenPopup("NCRECWindow");
     if (ImGui::BeginPopup("NCRECWindow")) {
         ImGui::TextDisabled("Fullscreen workspace");
         ImGui::EndPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Help")) ImGui::OpenPopup("NCRECHelp");
+    if (ImGui::Button(withIcon(fa::help, "Help").c_str())) ImGui::OpenPopup("NCRECHelp");
     if (ImGui::BeginPopup("NCRECHelp")) {
         ImGui::TextDisabled("NCREC — RED4ext editor preview");
         ImGui::TextDisabled("Game camera is not connected yet.");
@@ -186,24 +208,28 @@ void drawTopBar(Session& session, FullscreenEditorState& ui, Rect rect) {
 
     // Correct right-aligned save + hide controls, as in the HTML.
     if (rect.width > 820) {
-        ImGui::SetCursorScreenPos({rect.x + rect.width - 168, rect.y + 5});
-        if (ImGui::Button("Save")) saveShot(session, ui);
+        ImGui::SetCursorScreenPos({rect.x + rect.width - 206, rect.y + 5});
+        if (ImGui::Button(withIcon(fa::save, "Save").c_str())) saveShot(session, ui);
         ImGui::SameLine();
-        if (ImGui::Button("Hide UI")) ui.closeRequested = true;
+        if (ImGui::Button(withIcon(fa::desktop, "Hide UI").c_str())) ui.closeRequested = true;
     }
     endPanel();
 }
 
 void drawProjects(Session& session, FullscreenEditorState& ui, Rect rect) {
     if (!beginPanel("##NCRECProjects", rect, kPanel)) return;
-    panelHeading(rect, "PROJECT / SHOTS");
+    panelHeading(rect, "PROJECT / SHOTS", fa::folderOpen);
 
     const bool empty = session.path().size() == 0;
     if (empty && rect.height > 320) {
         ImDrawList* d = ImGui::GetWindowDrawList();
         const float center = rect.x + rect.width * .5f;
         const float upper = rect.y + std::min(160.0f, rect.height * .28f);
-        drawFilmGlyph(d, {center, upper});
+        if (iconsLoaded())
+            drawIconAt(d, {center, upper}, fa::film,
+                       IM_COL32(92, 92, 92, 255), 28.0f);
+        else
+            drawFilmGlyph(d, {center, upper});
         centeredText(d, {center, upper + 48}, kMuted32, "No shots created yet.", 12);
         ImGui::SetCursorScreenPos({rect.x + 16, upper + 72});
     }
@@ -214,7 +240,7 @@ void drawProjects(Session& session, FullscreenEditorState& ui, Rect rect) {
     }
 
     ImGui::SetCursorPosX(16);
-    if (primaryButton("+  New Shot", {std::max(40.0f, rect.width - 32), 30}))
+    if (primaryButton(withIcon(fa::add, "New Shot").c_str(), {std::max(40.0f, rect.width - 32), 30}))
         runCommand(session, ui, "path clear");
 
     ImGui::Dummy({0, 8});
@@ -225,10 +251,10 @@ void drawProjects(Session& session, FullscreenEditorState& ui, Rect rect) {
     ImGui::InputTextWithHint("##shotName", "shot_001", ui.shotName, sizeof(ui.shotName));
 
     ImGui::SetCursorPosX(16);
-    if (ImGui::Button("Save Shot", {std::max(40.0f, rect.width - 32), 29}))
+    if (ImGui::Button(withIcon(fa::save, "Save Shot").c_str(), {std::max(40.0f, rect.width - 32), 29}))
         saveShot(session, ui);
     ImGui::SetCursorPosX(16);
-    if (ImGui::Button("Load Shot", {std::max(40.0f, rect.width - 32), 29}))
+    if (ImGui::Button(withIcon(fa::folderOpen, "Load Shot").c_str(), {std::max(40.0f, rect.width - 32), 29}))
         loadShot(session, ui);
     endPanel();
 }
@@ -247,17 +273,23 @@ void drawPreview(Rect rect) {
     const ImVec2 bar{rect.x + 24, rect.y + 24};
     d->AddRectFilled(bar, plus(bar, 190, 38), IM_COL32(26, 26, 26, 232), 4);
     d->AddRect(bar, plus(bar, 190, 38), kBorder32, 4);
-    const char* tools[] = {"S", "H", "O", "+", "#"};
+    const char* tools[] = {fa::select, fa::pan, fa::orbit, fa::zoom, fa::grid};
+    const char* fallback[] = {"S", "H", "O", "+", "#"};
     for (int i = 0; i < 5; ++i) {
         ImVec2 cell = plus(bar, 4 + i * 37, 4);
         if (i == 0) d->AddRectFilled(cell, plus(cell, 30, 30),
                                     IM_COL32(61, 56, 18, 255), 4);
         centeredText(d, plus(cell, 15, 15), i == 0 ? kAccent32 : kMuted32,
-                     tools[i], 14);
+                     iconsLoaded() ? tools[i] : fallback[i], 14);
     }
 
     const ImVec2 center{rect.x + rect.width * .5f, rect.y + rect.height * .5f};
-    drawCameraGlyph(d, plus(center, 0, -24), 1.0f, IM_COL32(74, 74, 74, 255));
+    if (iconsLoaded())
+        drawIconAt(d, plus(center, 0, -24), fa::camera,
+                   IM_COL32(74, 74, 74, 255), 34.0f);
+    else
+        drawCameraGlyph(d, plus(center, 0, -24), 1.0f,
+                        IM_COL32(74, 74, 74, 255));
     centeredText(d, plus(center, 0, 27), kMuted32, "[ Camera Preview Feed ]", 13);
     centeredText(d, plus(center, 0, 47), IM_COL32(94, 94, 94, 255),
                  "Game camera not yet connected", 11);
@@ -267,19 +299,21 @@ void drawPreview(Rect rect) {
 void drawPlayback(Session& session, FullscreenEditorState& ui, Rect rect) {
     if (!beginPanel("##NCRECPlayback", rect, kPanel)) return;
     // Toolbar is centered horizontally beneath the preview.
-    constexpr float groupWidth = 495;
+    constexpr float groupWidth = 536;
     const float x = rect.x + std::max(10.0f, (rect.width - groupWidth) * .5f);
     ImGui::SetCursorScreenPos({x, rect.y + 7});
-    if (ImGui::Button("Load Demo", {95, 28})) runCommand(session, ui, "path demo");
+    if (ImGui::Button(withIcon(fa::folderOpen, "Load Demo").c_str(), {112, 28})) runCommand(session, ui, "path demo");
     ImGui::SameLine();
-    if (ImGui::Button("|<", {36, 28})) session.seek(0.0);
+    if (ImGui::Button(iconsLoaded() ? fa::back : "|<", {36, 28})) session.seek(0.0);
     ImGui::SameLine();
-    if (primaryButton(session.playing() ? "Pause" : "Play Preview", {132, 28}))
+    if (primaryButton(withIcon(session.playing() ? fa::pause : fa::play,
+                                   session.playing() ? "Pause" : "Play Preview").c_str(),
+                      {145, 28}))
         runCommand(session, ui, session.playing() ? "path pause" : "path play");
     ImGui::SameLine();
-    if (ImGui::Button(">|", {36, 28})) session.seek(session.path().durationSeconds());
+    if (ImGui::Button(iconsLoaded() ? fa::next : ">|", {36, 28})) session.seek(session.path().durationSeconds());
     ImGui::SameLine();
-    if (ImGui::Button("Clear Shot", {95, 28})) runCommand(session, ui, "path clear");
+    if (ImGui::Button(withIcon(fa::trash, "Clear Shot").c_str(), {111, 28})) runCommand(session, ui, "path clear");
     endPanel();
 }
 
@@ -326,7 +360,7 @@ void drawCameraInspector(Session& session, FullscreenEditorState& ui, Rect rect)
     ImGui::Dummy({0, 4});
     (void)axisInput("T", kMuted32, ui.addTimeSeconds, width);
     ImGui::SetCursorPosX(0);
-    if (primaryButton("+  Add virtual pose", {width, 30})) {
+    if (primaryButton(withIcon(fa::add, "Add virtual pose").c_str(), {width, 30})) {
         addMessage(ui, session.addKeyframe(ui.addTimeSeconds)
             ? "Virtual keyframe added." : "Invalid or duplicate keyframe time.");
     }
@@ -343,9 +377,9 @@ void drawCameraInspector(Session& session, FullscreenEditorState& ui, Rect rect)
             ImGui::PushID(static_cast<int>(i));
             ImGui::Text("%zu  |  %.3fs", i, frame.timeSeconds);
             ImGui::SameLine();
-            if (ImGui::SmallButton("Go")) session.seek(frame.timeSeconds);
+            if (ImGui::SmallButton(withIcon(fa::play, "Go").c_str())) session.seek(frame.timeSeconds);
             ImGui::SameLine();
-            if (ImGui::SmallButton("X")) {
+            if (ImGui::SmallButton(iconsLoaded() ? fa::trash : "X")) {
                 (void)session.removeKeyframe(i);
                 addMessage(ui, "Keyframe removed.");
                 ImGui::PopID();
@@ -379,17 +413,18 @@ void drawConsole(Session& session, FullscreenEditorState& ui) {
 
 void drawInspector(Session& session, FullscreenEditorState& ui, Rect rect) {
     if (!beginPanel("##NCRECInspector", rect, kPanel)) return;
-    panelHeading(rect, "INSPECTOR");
+    panelHeading(rect, "INSPECTOR", fa::settings);
     const float availableWidth = rect.width - 32;
     const float tabWidth = std::max(58.0f, (availableWidth - 16) / 3.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, kMain);
     const char* tabs[] = {"Timeline", "Console", "Settings"};
+    const char* tabIcons[] = {fa::timeline, fa::terminal, fa::settings};
     for (int n = 0; n < 3; ++n) {
         if (n) ImGui::SameLine(0, 4);
         const bool selected = static_cast<int>(ui.inspector) == n;
         if (selected) ImGui::PushStyleColor(ImGuiCol_Button, kInput);
         if (selected) ImGui::PushStyleColor(ImGuiCol_Text, kAccent);
-        if (ImGui::Button(tabs[n], {tabWidth, 29}))
+        if (ImGui::Button(withIcon(tabIcons[n], tabs[n]).c_str(), {tabWidth, 29}))
             ui.inspector = static_cast<InspectorTab>(n);
         if (selected) ImGui::PopStyleColor(2);
     }
@@ -422,7 +457,7 @@ void drawInspector(Session& session, FullscreenEditorState& ui, Rect rect) {
 
 void drawTimeline(Session& session, FullscreenEditorState& ui, Rect rect) {
     if (!beginPanel("##NCRECTimeline", rect, kPanel)) return;
-    panelHeading(rect, "CAMERA TIMELINE");
+    panelHeading(rect, "CAMERA TIMELINE", fa::timeline);
 
     ImGui::TextColored(kMuted, "Build and preview timed camera shots.");
     const ImVec2 start = ImGui::GetCursorScreenPos();
