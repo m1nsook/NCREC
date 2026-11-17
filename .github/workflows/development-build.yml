@@ -45,6 +45,7 @@ jobs:
           Copy-Item 'licenses/nlohmann-json-MIT.txt' (Join-Path $notices 'nlohmann-json-MIT.txt')
           Copy-Item 'licenses/Inter-OFL.txt' (Join-Path $notices 'Inter-OFL.txt')
           Copy-Item 'licenses/JetBrainsMono-OFL.txt' (Join-Path $notices 'JetBrainsMono-OFL.txt')
+          Copy-Item 'licenses/FontAwesome-Free-LICENSE.txt' (Join-Path $notices 'FontAwesome-Free-LICENSE.txt')
           Copy-Item 'examples/NCREC-preview.ini.example' (Join-Path $plugin 'NCREC-preview.ini.example')
 
           $readme = @'
@@ -76,6 +77,8 @@ jobs:
           6. Verify F8 closes it and Alt+F4 can still exit.
 
           WARNING
+          - Font Awesome icons are now embedded in the DLL (menu, viewport,
+            playback and inspector). They do NOT enable mouse interaction.
           - NOT INTERACTIVE. Mouse and keyboard still belong to the game.
            - Wizard keypresses also reach the game. Use main/pause menu.
           - DO NOT click on the UI expecting to edit keyframes.
@@ -135,6 +138,10 @@ jobs:
           Built from main commit $GITHUB_SHA.
           Source: https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA
           CI: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+
+          **Icons:** Font Awesome Free 6.4.0 solid icons are embedded.
+          Menus, viewport tools, project actions and playback now use icons
+          from the user's demo.html. Mouse interaction remains disabled.
 
           **Default:** previously verified RED4ext loader-only startup. Nothing
           appears in-game unless the optional preview is enabled.
