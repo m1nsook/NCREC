@@ -3,6 +3,8 @@
 #include "core/CameraTransport.hpp"
 #include "core/ProjectIO.hpp"
 #include "core/Session.hpp"
+#include "core/EditorInputGate.hpp"
+#include "core/ToggleKeyPolicy.hpp"
 #include "editor/WorkspaceLayout.hpp"
 
 #include <cmath>
@@ -24,6 +26,71 @@ void require(bool condition, const char* label) {
 
 bool near(double actual, double expected, double epsilon = 1e-8) {
     return std::abs(actual - expected) < epsilon;
+}
+
+struct FakeInputAdapter {
+    bool grant{false};
+    int acquired{0};
+    int released{0};
+
+    static bool acquire(void* data) noexcept {
+        auto& self = *static_cast<FakeInputAdapter*>(data);
+        ++self.acquired;
+        return self.grant;
+    }
+    static void release(void* data) noexcept {
+        ++static_cast<FakeInputAdapter*>(data)->released;
+    }
+};
+
+void testSafeInputGate() {
+    using ncrec::input::EditorInputGate;
+    FakeInputAdapter adapter{};
+    {
+        EditorInputGate gate;
+        require(!gate.open(true, nullptr, &FakeInputAdapter::release, &adapter),
+                "missing engine adapter fails closed");
+        require(!gate.open(false, &FakeInputAdapter::acquire,
+                           &FakeInputAdapter::release, &adapter),
+                "focus required for acquisition");
+        require(adapter.acquired == 0, "unfocused does not touch the engine");
+        require(!gate.open(true, &FakeInputAdapter::acquire,
+                           &FakeInputAdapter::release, &adapter),
+                "failed acquisition stays passive");
+        require(!gate.active() && adapter.released == 0, "no release on failed acquire");
+        adapter.grant = true;
+        require(gate.open(true, &FakeInputAdapter::acquire,
+                          &FakeInputAdapter::release, &adapter),
+                "successful engine grant");
+        gate.focusChanged(false);
+        require(!gate.active() && adapter.released == 1,
+                "focus loss releases cursor/input");
+        require(gate.open(true, &FakeInputAdapter::acquire,
+                          &FakeInputAdapter::release, &adapter),
+                "explicit reopen allowed");
+        gate.close();
+        gate.close();
+        require(adapter.released == 2, "hide release idempotent");
+        require(gate.open(true, &FakeInputAdapter::acquire,
+                          &FakeInputAdapter::release, &adapter),
+                "reopen after hide");
+    }
+    require(adapter.released == 3, "shutdown releases cursor/input");
+}
+
+void testToggleKeyPolicy() {
+    using namespace ncrec::input;
+    require(allowedToggleKey(kDefaultToggleKey), "F8 allowed");
+    require(toggleKeyName(kDefaultToggleKey) == "F8", "F8 key label");
+    for (const auto& key : kToggleKeys) {
+        require(allowedToggleKey(key.vk) && !toggleKeyName(key.vk).empty(),
+                "allowed key has a label");
+    }
+    for (auto key : {0x73u, 0x79u, 0x1Bu, 0x0Du, 0x12u,
+                     0x11u, 0x10u, 0x5Bu, 0x41u}) {
+        require(!allowedToggleKey(key),
+                "F4/F10/Escape/Enter/modifiers/gameplay keys rejected");
+    }
 }
 
 void testEmptyPath() {
@@ -259,6 +326,8 @@ void testSession() {
 
 int main() {
     try {
+        testSafeInputGate();
+        testToggleKeyPolicy();
         testEmptyPath();
         testPathTimeAndInterpolation();
         testHermiteAndQuaternion();

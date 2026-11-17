@@ -72,6 +72,7 @@ std::atomic<UINT>       g_toggle_key{VK_OEM_MINUS};
 // captures RawInput or consumes keyboard/system messages.
 std::atomic_bool        g_passive_mode{false};
 bool                    g_probe_toggle_down = false;
+std::atomic_bool        g_toggle_suspended{false};
 // Key capture is delivered from the game's WndProc to the render/UI thread.
 // No additional Windows window or global hotkey registration is needed.
 std::atomic_bool        g_capture_key{false};
@@ -429,7 +430,8 @@ HRESULT STDMETHODCALLTYPE hook_present(IDXGISwapChain3* self, UINT SyncInterval,
         const UINT previewKey = g_toggle_key.load(std::memory_order_acquire);
         const bool pressed = focused && previewKey != 0 &&
             (GetAsyncKeyState(static_cast<int>(previewKey)) & 0x8000) != 0;
-        if (pressed && !g_probe_toggle_down)
+        if (pressed && !g_probe_toggle_down &&
+            !g_toggle_suspended.load(std::memory_order_acquire))
             g_visible.store(!g_visible.load(std::memory_order_acquire),
                             std::memory_order_release);
         g_probe_toggle_down = pressed;
@@ -687,6 +689,10 @@ void set_passive_mode(bool passive) {
 
 void set_toggle_key(UINT vk_code) {
     g_toggle_key.store(vk_code, std::memory_order_release);
+}
+
+void set_toggle_suspended(bool suspended) {
+    g_toggle_suspended.store(suspended, std::memory_order_release);
 }
 
 void begin_key_capture() {

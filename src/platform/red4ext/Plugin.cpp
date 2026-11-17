@@ -10,6 +10,7 @@
 #include <RED4ext/Api/v1/Version.hpp>
 
 #include "platform/red4ext/RenderProbe.hpp"
+#include "core/ToggleKeyPolicy.hpp"
 
 #include <atomic>
 #include <cstdint>
@@ -17,6 +18,7 @@
 #include <filesystem>
 #include <string>
 #include <cwctype>
+#include <cwchar>
 #include <algorithm>
 
 namespace {
@@ -36,6 +38,16 @@ std::filesystem::path pluginIni(HMODULE module) {
 // Single-key, configurable and intentionally independent of CET's binding.
 // Keep Windows system keys and modifier combinations untouched.
 UINT readPreviewKey(const std::filesystem::path& ini) {
+    // Wizard-selected VK takes precedence over the legacy named setting.
+    wchar_t saved[64]{};
+    GetPrivateProfileStringW(L"Hotkeys", L"ToggleVK", L"", saved,
+                             static_cast<DWORD>(std::size(saved)), ini.c_str());
+    if (saved[0]) {
+        wchar_t* end = nullptr;
+        const unsigned long vk = std::wcstoul(saved, &end, 10);
+        if (end != saved && *end == L'\0' && ncrec::input::allowedToggleKey(vk))
+            return static_cast<UINT>(vk);
+    }
     wchar_t buffer[64]{};
     GetPrivateProfileStringW(
         L"Experimental", L"ToggleKey", L"F8",
@@ -55,7 +67,7 @@ UINT readPreviewKey(const std::filesystem::path& ini) {
             number = number * 10 + static_cast<unsigned>(digit - L'0');
             if (number > 12) return VK_F8;
         }
-        if (number >= 6 && number <= 12)
+        if (number >= 6 && number <= 12 && number != 10)
             return static_cast<UINT>(VK_F1 + number - 1);
     }
     if (key == L"INSERT" || key == L"INS") return VK_INSERT;
