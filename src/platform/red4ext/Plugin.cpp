@@ -9,11 +9,36 @@
 #include <RED4ext/Api/v1/Sdk.hpp>
 #include <RED4ext/Api/v1/Version.hpp>
 
+#include "platform/red4ext/RenderProbe.hpp"
+
 #include <atomic>
 #include <cstdint>
+#include <array>
+#include <filesystem>
+#include <string>
 
 namespace {
 std::atomic_bool g_loaded{false};
+bool g_probeStarted{};
+
+bool passiveProbeRequested(const RED4ext::v1::Sdk* sdk) noexcept {
+    if (!sdk || !sdk->runtime || sdk->runtime->major != 2 ||
+        sdk->runtime->minor != 5 || sdk->runtime->patch != 0) {
+        return false; // Tested only on Cyberpunk's reported product v2.50.
+    }
+    const HMODULE module = GetModuleHandleW(L"NCREC.dll");
+    if (!module) return false;
+
+    std::array<wchar_t, 32768> modulePath{};
+    const DWORD count = GetModuleFileNameW(
+        module, modulePath.data(), static_cast<DWORD>(modulePath.size()));
+    if (!count || count >= modulePath.size()) return false;
+
+    const auto ini = std::filesystem::path(
+        std::wstring(modulePath.data(), count)).parent_path() / L"NCREC.ini";
+    return GetPrivateProfileIntW(
+        L"Experimental", L"PassiveFullscreen", 0, ini.c_str()) == 1;
+}
 
 void logInfo(RED4ext::v1::PluginHandle handle, const RED4ext::v1::Sdk* sdk,
              const char* message) noexcept {
@@ -43,13 +68,29 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
                 return false;
             }
             if (g_loaded.exchange(true)) return true;
-            logInfo(handle, sdk, "NCREC RED4ext host loaded (bootstrap only).");
-            logInfo(handle, sdk,
-                    "NCREC's fullscreen renderer, cursor interception and camera hooks "
-                    "are intentionally disabled pending game-version validation.");
+            logInfo(handle, sdk, "NCREC RED4ext host loaded.");
+            const HMODULE module = GetModuleHandleW(L"NCREC.dll");
+            if (passiveProbeRequested(sdk) && module) {
+                g_probeStarted = ncrec::platform::red4ext::startPassiveFullscreen(module);
+                if (g_probeStarted) {
+                    logInfo(handle, sdk,
+                        "EXPERIMENTAL passive fullscreen renderer initialized; "
+                        "press F10 in-game. No input ownership or camera hooks.");
+                } else if (sdk && sdk->logger && sdk->logger->Error) {
+                    sdk->logger->Error(handle, "NCREC passive preview failed to initialize.");
+                }
+            } else {
+                logInfo(handle, sdk,
+                    "NCREC fullscreen renderer is disabled by default; "
+                    "the verified RED4ext bootstrap remains active.");
+            }
             return true;
 
         case RED4ext::v1::EMainReason::Unload:
+            if (g_probeStarted) {
+                ncrec::platform::red4ext::stopPassiveFullscreen();
+                g_probeStarted = false;
+            }
             if (g_loaded.exchange(false)) {
                 logInfo(handle, sdk, "NCREC RED4ext host unloaded.");
             }
@@ -62,11 +103,10 @@ RED4EXT_C_EXPORT void RED4EXT_CALL Query(RED4ext::v1::PluginInfo* info) {
     if (!info) return;
     info->name = L"NCREC";
     info->author = L"m1nsook";
-    info->version = RED4EXT_V1_SEMVER(0, 2, 0);
-    // API 1.0.0 defines the latest known game runtime as 2.31, while
-    // development is being tested on Cyberpunk 2.5. This *loader-only*
-    // bootstrap does not access game memory; version-specific features
-    // MUST be blocked until a validated runtime gate is added.
+    info->version = RED4EXT_V1_SEMVER(0, 3, 0);
+    // Version independent for safe default loading. Experimental
+    // render-only preview is separately gated to Cyberpunk 2.50 at runtime.
+    // No REDengine memory or camera hooks are enabled.
     info->runtime = RED4EXT_V1_RUNTIME_VERSION_INDEPENDENT;
     info->sdk = RED4EXT_V1_SDK_VERSION_CURRENT;
 }
