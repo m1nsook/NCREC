@@ -27,3 +27,13 @@ Completed work moves to `main` after build/tests; no indefinite nested draft PRs
 The RED4ext target is a loader-only bootstrap: no ImGui/renderer, no game cursor ownership, no camera writes. The legacy ASI prototype previously rendered ImGui but was unstable during gameplay. It is **not** a replacement for the RED4ext editor.
 
 The goal is the owner-supplied fullscreen `demo.html` layout: application-like top bar, project sidebar, center preview, inspector, timeline, status bar, and minimal scrolling. No unsafe rendering/input hooks will be enabled without runtime validation.
+
+## Test downloads
+
+A development-build **prerelease** is rebuilt after passing the Windows
+DLL compilation and core tests on main. The PR also gets a downloadable
+Actions artifact for review. Releases contain only the RED4ext bootstrap,
+**not** the unstable ASI. The release notes explain that no in-game editor
+or camera integration is enabled.
+
+Workflow: .github/workflows/development-build.yml.
