@@ -147,7 +147,29 @@ if(NCREC_BUILD_RED4EXT)
     )
     FetchContent_MakeAvailable(red4ext_sdk)
 
+    # Build the fullscreen ImGui workspace as an inert source module.
+    # RED4ext's plugin entry point does NOT call it or hook DirectX/input.
+    FetchContent_Declare(imgui
+        GIT_REPOSITORY https://github.com/ocornut/imgui.git
+        GIT_TAG f5befd2d29e66809cd1110a152e375a7f1981f06
+    )
+    FetchContent_MakeAvailable(imgui)
+    add_library(ncrec_fullscreen_editor STATIC
+        src/editor/FullscreenEditor.cpp
+        ${imgui_SOURCE_DIR}/imgui.cpp
+        ${imgui_SOURCE_DIR}/imgui_draw.cpp
+        ${imgui_SOURCE_DIR}/imgui_tables.cpp
+        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    )
+    target_include_directories(ncrec_fullscreen_editor PUBLIC
+        ${imgui_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    target_link_libraries(ncrec_fullscreen_editor PUBLIC ncrec_core)
+    target_compile_features(ncrec_fullscreen_editor PUBLIC cxx_std_20)
+
     add_library(NCREC_RED4ext SHARED src/platform/red4ext/Plugin.cpp)
+    add_dependencies(NCREC_RED4ext ncrec_fullscreen_editor)
     target_compile_features(NCREC_RED4ext PRIVATE cxx_std_20)
     target_link_libraries(NCREC_RED4ext PRIVATE RED4ext::SDK ncrec_core)
     target_compile_definitions(NCREC_RED4ext PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
