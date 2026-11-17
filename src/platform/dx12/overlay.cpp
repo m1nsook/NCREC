@@ -12,6 +12,7 @@
 #include <array>
 #include <atomic>
 #include <algorithm>
+#include <cfloat>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -449,8 +450,16 @@ HRESULT STDMETHODCALLTYPE hook_present(IDXGISwapChain3* self, UINT SyncInterval,
 
         ImGui_ImplDX12_NewFrame();
         ImGui_ImplWin32_NewFrame();
-        if (!g_passive_mode.load(std::memory_order_acquire))
+        if (!g_passive_mode.load(std::memory_order_acquire)) {
             update_imgui_raw_cursor();
+        } else {
+            // Read-only view: no ImGui button can act on a click that still
+            // belongs to the game. Never forge input or mouse ownership.
+            ImGuiIO& io = ImGui::GetIO();
+            io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+            for (int button = 0; button < 5; ++button)
+                io.AddMouseButtonEvent(button, false);
+        }
         ImGui::NewFrame();
 
         g_render_callback(self, SyncInterval, Flags);

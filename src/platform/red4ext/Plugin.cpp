@@ -56,7 +56,7 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
     const RED4ext::v1::Sdk* sdk) {
 
     switch (reason) {
-        case RED4ext::v1::EMainReason::Load:
+        case RED4ext::v1::EMainReason::Load: {
             // Fail closed when the legacy ASI has already been loaded.
             // This protects against installing both NCREC variants at once.
             if (GetModuleHandleW(L"NCREC.asi") != nullptr) {
@@ -85,6 +85,7 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(
                     "the verified RED4ext bootstrap remains active.");
             }
             return true;
+        }
 
         case RED4ext::v1::EMainReason::Unload:
             if (g_probeStarted) {
