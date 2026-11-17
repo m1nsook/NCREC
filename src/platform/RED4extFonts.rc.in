@@ -1,0 +1,5 @@
+// RED4ext-only embedded font resources, with Font Awesome Free icons.
+// Font licensing: licenses/FontAwesome-Free-LICENSE.txt (SIL OFL 1.1).
+101 RCDATA "@NCREC_INTER_RESOURCE@"
+102 RCDATA "@NCREC_MONO_RESOURCE@"
+103 RCDATA "@NCREC_ICON_RESOURCE@"
