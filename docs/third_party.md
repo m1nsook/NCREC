@@ -31,6 +31,14 @@ rework for lifecycle, synchronization, and API coexistence.
 The build downloads these fonts from pinned upstream revisions and embeds them
 as Win32 RCDATA in the ASI. No font files need to be installed on users' PCs.
 
+- **Font Awesome Free 6.4.0 Solid**, matching `design/demo.html`,
+  https://github.com/FortAwesome/Font-Awesome at pinned commit
+  `0698449d50f2b95517562295a59d414afc68b369`.
+  Font files: SIL Open Font License 1.1; see
+  `licenses/FontAwesome-Free-LICENSE.txt`. The RED4ext DLL embeds
+  `webfonts/fa-solid-900.ttf` at build time with no live CDN dependency
+  or separate font installation. No new game input hooks are introduced.
+
 ## Camera project JSON
 
 The native and portable NCREC builds use **JSON for Modern C++** from

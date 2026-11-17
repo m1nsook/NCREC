@@ -198,10 +198,31 @@ std::string keyLabel(UINT key) {
 }
 
 void configureFonts() {
-    // Loaded from resources embedded in this same RED4ext DLL.
-    if (ImFont* body = loadFont(101, 14.0f))
-        ImGui::GetIO().FontDefault = body;
+    // Merge Font Awesome with Inter, NOT with the later JetBrains Mono font.
+    ImGuiIO& io = ImGui::GetIO();
+    ImFont* body = loadFont(101, 14.0f);
+    if (!body) body = io.Fonts->AddFontDefault();
+    io.FontDefault = body;
     (void)loadFont(102, 13.0f);
+
+    const HRSRC icon = FindResourceW(g_module, MAKEINTRESOURCEW(103), RT_RCDATA);
+    if (!icon) return; // Text-only fallback on a missing icon resource.
+    HGLOBAL handle = LoadResource(g_module, icon);
+    const void* data = handle ? LockResource(handle) : nullptr;
+    const DWORD bytes = SizeofResource(g_module, icon);
+    if (!data || !bytes) return;
+
+    // Small exact glyph set instead of rasterizing the entire icon font.
+    static const ImWchar ranges[] = { 0xe29c, 0xe29c, 0xe4bb, 0xe4bb, 0xf008, 0xf008, 0xf00d, 0xf00d, 0xf00e, 0xf00e, 0xf013, 0xf013, 0xf030, 0xf030, 0xf03d, 0xf03d, 0xf044, 0xf044, 0xf048, 0xf048, 0xf04b, 0xf04b, 0xf04c, 0xf04c, 0xf051, 0xf051, 0xf055, 0xf055, 0xf059, 0xf059, 0xf06e, 0xf06e, 0xf07c, 0xf07c, 0xf0c7, 0xf0c7, 0xf0db, 0xf0db, 0xf120, 0xf120, 0xf15b, 0xf15b, 0xf245, 0xf245, 0xf256, 0xf256, 0xf2ed, 0xf2ed, 0xf390, 0xf390, 0xf84c, 0xf84c, 0 };
+    ImFontConfig config{};
+    config.MergeMode = true;
+    config.DstFont = body;
+    config.FontDataOwnedByAtlas = false;
+    config.PixelSnapH = true;
+    config.GlyphMinAdvanceX = 13.0f;
+    (void)io.Fonts->AddFontFromMemoryTTF(
+        const_cast<void*>(data), static_cast<int>(bytes), 13.0f,
+        &config, ranges);
 }
 
 void drawPassiveFrame(IDXGISwapChain3* swapChain, UINT, UINT) {

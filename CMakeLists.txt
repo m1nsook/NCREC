@@ -187,7 +187,25 @@ if(NCREC_BUILD_RED4EXT)
     endforeach()
     set(NCREC_INTER_RESOURCE "${NCREC_FONT_DIR}/InterVariable.ttf")
     set(NCREC_MONO_RESOURCE "${NCREC_FONT_DIR}/JetBrainsMono-Regular.ttf")
-    configure_file(src/platform/Fonts.rc.in
+
+    # Font Awesome Free 6.4.0, matching design/demo.html.
+    # Download from an immutable upstream commit and embed only in RED4ext.
+    set(NCREC_ICON_FONT "${NCREC_FONT_DIR}/fa-solid-900.ttf")
+    if(NOT EXISTS "${NCREC_ICON_FONT}")
+        file(DOWNLOAD
+            "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/0698449d50f2b95517562295a59d414afc68b369/webfonts/fa-solid-900.ttf"
+            "${NCREC_ICON_FONT}" STATUS ncrec_icon_status TLS_VERIFY ON)
+        list(GET ncrec_icon_status 0 ncrec_icon_result)
+        if(NOT ncrec_icon_result EQUAL 0)
+            message(FATAL_ERROR "Font Awesome download failed: ${ncrec_icon_status}")
+        endif()
+    endif()
+    file(SIZE "${NCREC_ICON_FONT}" ncrec_icon_size)
+    if(ncrec_icon_size LESS 100000)
+        message(FATAL_ERROR "Font Awesome font is incomplete (${ncrec_icon_size} bytes)")
+    endif()
+    set(NCREC_ICON_RESOURCE "${NCREC_ICON_FONT}")
+    configure_file(src/platform/RED4extFonts.rc.in
         "${CMAKE_CURRENT_BINARY_DIR}/NCRECFontsRED4ext.rc" @ONLY)
     enable_language(RC)
 

@@ -70,6 +70,18 @@ The old ASI remains *opt-in* for developers only:
 `-DNCREC_BUILD_PLUGIN=ON -DNCREC_BUILD_RED4EXT=OFF`.
 **Do not distribute it as the stable editor.**
 
+## Font Awesome icons in the native fullscreen UI
+
+The RED4ext workspace now uses **Font Awesome Free 6.4.0** icons, matching
+`design/demo.html`, in menus, project/shot controls, viewport tools,
+playback and inspector tabs. The font is embedded in `NCREC.dll` by CI
+from a pinned upstream commit; you install no separate icon pack.
+A missing icon font falls back to text labels. Font license:
+`licenses/FontAwesome-Free-LICENSE.txt`.
+
+**Icons do not enable mouse interaction.** The native game cursor adapter
+is still unconnected, and the editor remains render-only.
+
 ## Input ownership safety gate
 
 The portable `src/core/EditorInputGate.hpp` contract is tested for

@@ -34,6 +34,15 @@ No default bind is imposed on a fresh install. No Ctrl/Shift/Fn combination is r
 - Typography: Inter regular 17 px, headings 23 px; JetBrains Mono 15 px
 - UI scale: 0.90–1.75, persisted as a percentage in \`[Appearance] UIScalePercent\`.
 
+## Font Awesome 6.4.0 icons (RED4ext only)
+
+The native RED4ext DLL now embeds the demo's Font Awesome Free 6.4.0
+solid icon font at compile time and merges a small set of glyphs into Inter.
+Menu actions, project panel, viewport tools, transport and inspector tabs
+use icon labels with a text fallback. This is a visual-only change:
+cursor/input ownership remains deliberately disabled.
+License: `licenses/FontAwesome-Free-LICENSE.txt`.
+
 ## Font packaging
 Fonts are downloaded by CMake from **immutable upstream commits**, then embedded
 as Windows \`RCDATA\` resources into \`NCREC.asi\`. Users do not need Windows
