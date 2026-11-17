@@ -97,3 +97,37 @@ See [test report](test-reports/2026-11-17-red4ext-bootstrap.md).
 6. Only then enable real camera read/override/restore in a supported version.
 
 The DLL host is not proof that the in-game editor or camera already works.
+
+## Stage 2: opt-in passive fullscreen rendering probe (UNVALIDATED IN GAME)
+
+The C++ fullscreen interface from `design/demo.html` can now be drawn
+through the existing D3D12 swapchain **only if the user opts in**. The default
+RED4ext startup remains the previously verified, loader-only bootstrap.
+
+For a rendering-only test:
+
+1. Install the newer DLL from the `development-build` prerelease.
+2. Copy/rename `red4ext/plugins/NCREC/NCREC-preview.ini.example` to
+   `red4ext/plugins/NCREC/NCREC.ini`.
+3. Open Cyberpunk 2077 **2.50** and stay at the main menu or pause screen.
+4. Press **F10** once to show/hide the fullscreen app shell.
+5. Verify screen coverage, panel sizes and that the scene behind the app
+   continues to render without flicker or stutters.
+6. Verify F10 hides the app and **Alt+F4 still exits**. If the game becomes
+   unstable, remove/rename the NCREC.ini and restart. The default DLL then
+   returns to loader-only mode.
+
+**This is NOT an interactive editor yet.** The preview:
+- does **not** subclass the game's window or intercept WM_INPUT, WM_KEY*
+  or WM_SYSKEY*, and does not clip or manipulate the mouse cursor;
+- does **not** pause, freeze or take camera control;
+- ignores all mouse interaction in ImGui to avoid duplicate clicks that
+  might operate the game behind the preview;
+- can be toggled with F10 (never consumed from the game);
+- uses the same still-experimental DXGI hook family as the old ASI, now
+  gated by NCREC.ini and game runtime v2.50;
+- can conflict with CET, ReShade or other overlays until tested.
+
+This **must not** be enabled by default before an in-game stability report.
+The earlier ASI input trap means the safest next tests are **render-only**
+and **menu-first**, followed by validated engine-aware cursor ownership.

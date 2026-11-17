@@ -43,36 +43,42 @@ jobs:
           Copy-Item LICENSE (Join-Path $root 'LICENSE.txt')
           Copy-Item 'licenses/RED4ext-SDK-MIT.txt' (Join-Path $notices 'RED4ext-SDK-MIT.txt')
           Copy-Item 'licenses/nlohmann-json-MIT.txt' (Join-Path $notices 'nlohmann-json-MIT.txt')
+          Copy-Item 'licenses/Inter-OFL.txt' (Join-Path $notices 'Inter-OFL.txt')
+          Copy-Item 'licenses/JetBrainsMono-OFL.txt' (Join-Path $notices 'JetBrainsMono-OFL.txt')
+          Copy-Item 'examples/NCREC-preview.ini.example' (Join-Path $plugin 'NCREC-preview.ini.example')
 
           $readme = @'
-          NCREC DEVELOPMENT BUILD - RED4ext loader test
-          ============================================
+          NCREC DEVELOPMENT BUILD - RED4ext passive renderer test
+          ======================================================
 
-          THIS VERSION DOES NOT DISPLAY AN NCREC WINDOW.
-          The fullscreen editor is compiled but is NOT connected to the DLL.
-          There is NO in-game camera movement, keyframe capture or freecam.
+          DEFAULT MODE IS STILL THE VERIFIED LOADER-ONLY BOOTSTRAP.
+          There is no NCREC window unless you explicitly enable the
+          optional render-only preview in NCREC.ini.
 
           INSTALL
-          1. Make sure a game-version-compatible RED4ext loader is installed.
-          2. REMOVE the old bin/x64/plugins/NCREC.asi. Never run both.
-          3. Copy the ZIP's red4ext folder into your Cyberpunk 2077 folder.
-          4. Start Cyberpunk 2077.
+          1. Make sure a Cyberpunk-version-compatible RED4ext loader is installed.
+          2. Remove old bin/x64/plugins/NCREC.asi. Never run both.
+          3. Copy the ZIP's red4ext folder into Cyberpunk 2077.
+          4. Start the game. Normal game startup is expected by default.
 
-          TEST ONLY
-          - Game launches and reaches the menu without crashes.
-          - RED4ext logs contain "NCREC RED4ext host loaded (bootstrap only)."
-          - Mouse and keyboard work normally in menu and gameplay.
-          - Alt+F4 exits normally; game closes normally.
-          - No NCREC UI appears (EXPECTED FOR THIS BUILD).
+          OPTIONAL FULLSCREEN RENDER PREVIEW (EXPERIMENTAL)
+          1. In red4ext/plugins/NCREC/, rename NCREC-preview.ini.example
+             to NCREC.ini.
+          2. Start Cyberpunk 2077 version 2.50.
+          3. Stay at the main menu or open the pause/ESC screen.
+          4. Press F10 to show/hide the fullscreen editor layout.
+          5. Check image stability, fullscreen layout and scrolling.
+          6. Verify F10 closes it and Alt+F4 can still exit.
 
-          NOT IMPLEMENTED YET
-          - Fullscreen NCREC overlay and camera editor
-          - Freecam and in-game keyframes
-          - OBS integration
-
-          If startup fails, remove red4ext/plugins/NCREC/NCREC.dll
-          and verify that your installed RED4ext matches your game version.
-          This is a test prerelease, NOT a stable mod.
+          WARNING
+          - NOT INTERACTIVE. Mouse and keyboard still belong to the game.
+          - DO NOT click on the UI expecting to edit keyframes.
+          - No game camera control, pause/freeze, freecam or OBS.
+          - May still conflict with other DXGI overlays; run menu-first.
+          - If anything behaves badly, remove/rename NCREC.ini and
+            restart Cyberpunk: safe loader-only behavior resumes.
+          - Do NOT install the unstable legacy ASI with this DLL.
+          - This is a TEST PRERELEASE, not a stable mod.
           '@
           Set-Content -Path (Join-Path $root 'README-TESTING.txt') -Value $readme -Encoding utf8
 
@@ -118,29 +124,33 @@ jobs:
           test -s "$archive"
           test -s "$checksum"
           cat > release-notes.md <<EOF
-          **NCREC experimental RED4ext build — NOT a stable release.**
+          **NCREC development build — NOT a stable release.**
 
           Built from main commit $GITHUB_SHA.
           Source: https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA
           CI: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
 
-          **This DLL is a startup/lifecycle test only. It does not show
-          the NCREC fullscreen editor, modify the game camera or capture paths.**
+          **Default:** previously verified RED4ext loader-only startup. Nothing
+          appears in-game unless the optional preview is enabled.
 
-          **Install:** Download NCREC-development-build.zip. Remove any old
-          bin/x64/plugins/NCREC.asi. Extract into the Cyberpunk 2077 game
-          folder. Requires a game-compatible RED4ext loader.
+          **Experimental F10 render-only preview:** rename
+          red4ext/plugins/NCREC/NCREC-preview.ini.example to NCREC.ini,
+          launch Cyberpunk 2077 v2.50, and press F10 at the main/pause menu.
+          This draws the fullscreen ImGui layout but DOES NOT acquire input,
+          freeze the game or manipulate the camera. The buttons are NOT
+          interactive yet. F10 toggles visibility without swallowing keys.
 
-          **Test:** Normal startup, NCREC RED4ext load log, working mouse and
-          keyboard, Alt+F4, and a clean exit. No NCREC window is expected.
+          **Install:** download NCREC-development-build.zip, remove any old
+          bin/x64/plugins/NCREC.asi, extract into the Cyberpunk 2077 folder.
+          Requires a game-compatible RED4ext loader.
 
-          The ZIP includes red4ext/plugins/NCREC/NCREC.dll,
-          README-TESTING.txt, and third-party license notices.
+          **Recovery:** remove/rename NCREC.ini to return to the safe
+          loader-only mode if the rendering preview is unstable.
           EOF
 
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
-              --title "NCREC development-build (RED4ext loader test)" \
+              --title "NCREC development-build (optional fullscreen preview)" \
               --prerelease --latest=false --target "$GITHUB_SHA" \
               --notes-file release-notes.md
             gh release upload "$tag" "$archive" "$checksum" \
@@ -151,6 +161,6 @@ jobs:
           else
             gh release create "$tag" "$archive" "$checksum" \
               --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --title "NCREC development-build (RED4ext loader test)" \
+              --title "NCREC development-build (optional fullscreen preview)" \
               --prerelease --latest=false --notes-file release-notes.md
           fi

@@ -154,6 +154,43 @@ if(NCREC_BUILD_RED4EXT)
         GIT_TAG f5befd2d29e66809cd1110a152e375a7f1981f06
     )
     FetchContent_MakeAvailable(imgui)
+
+    # DX12 render-only experiment. The DLL defaults to loader-only behavior;
+    # an explicit NCREC.ini setting enables this backend on tested game v2.50.
+    FetchContent_Declare(minhook
+        GIT_REPOSITORY https://github.com/TsudaKageyu/minhook.git
+        GIT_TAG 1e9ad1eb42db11bfcb65461f687c656612d1b555
+    )
+    FetchContent_MakeAvailable(minhook)
+
+    # Bundle fonts into the RED4ext DLL (no separate font installation).
+    set(NCREC_FONT_DIR "${CMAKE_CURRENT_BINARY_DIR}/red4ext-fonts")
+    file(MAKE_DIRECTORY "${NCREC_FONT_DIR}")
+    foreach(font IN ITEMS InterVariable.ttf JetBrainsMono-Regular.ttf)
+        if(font STREQUAL "InterVariable.ttf")
+            set(font_url "https://raw.githubusercontent.com/rsms/inter/353b61b9f4430d5f420d56605a6e7993e0941470/docs/font-files/InterVariable.ttf")
+        else()
+            set(font_url "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/19371302b95d218af43299bce79ddbddd0bc364d/fonts/ttf/JetBrainsMono-Regular.ttf")
+        endif()
+        if(NOT EXISTS "${NCREC_FONT_DIR}/${font}")
+            file(DOWNLOAD "${font_url}" "${NCREC_FONT_DIR}/${font}"
+                STATUS font_download_status TLS_VERIFY ON)
+            list(GET font_download_status 0 font_result)
+            if(NOT font_result EQUAL 0)
+                message(FATAL_ERROR "Cannot retrieve bundled font ${font}: ${font_download_status}")
+            endif()
+        endif()
+        file(SIZE "${NCREC_FONT_DIR}/${font}" font_size)
+        if(font_size LESS 100000)
+            message(FATAL_ERROR "Font ${font} seems incomplete (${font_size} bytes)")
+        endif()
+    endforeach()
+    set(NCREC_INTER_RESOURCE "${NCREC_FONT_DIR}/InterVariable.ttf")
+    set(NCREC_MONO_RESOURCE "${NCREC_FONT_DIR}/JetBrainsMono-Regular.ttf")
+    configure_file(src/platform/Fonts.rc.in
+        "${CMAKE_CURRENT_BINARY_DIR}/NCRECFontsRED4ext.rc" @ONLY)
+    enable_language(RC)
+
     add_library(ncrec_fullscreen_editor STATIC
         src/editor/FullscreenEditor.cpp
         ${imgui_SOURCE_DIR}/imgui.cpp
@@ -168,10 +205,30 @@ if(NCREC_BUILD_RED4EXT)
     target_link_libraries(ncrec_fullscreen_editor PUBLIC ncrec_core)
     target_compile_features(ncrec_fullscreen_editor PUBLIC cxx_std_20)
 
-    add_library(NCREC_RED4ext SHARED src/platform/red4ext/Plugin.cpp)
-    add_dependencies(NCREC_RED4ext ncrec_fullscreen_editor)
+    add_library(ncrec_red4ext_dx12_probe STATIC
+        src/platform/dx12/overlay.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_dx12.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp
+    )
+    target_include_directories(ncrec_red4ext_dx12_probe PUBLIC
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/dx12
+    )
+    target_link_libraries(ncrec_red4ext_dx12_probe PUBLIC
+        ncrec_fullscreen_editor minhook d3d12 dxgi d3dcompiler user32 gdi32
+    )
+    target_compile_features(ncrec_red4ext_dx12_probe PUBLIC cxx_std_20)
+
+    add_library(NCREC_RED4ext SHARED
+        src/platform/red4ext/Plugin.cpp
+        src/platform/red4ext/RenderProbe.cpp
+        "${CMAKE_CURRENT_BINARY_DIR}/NCRECFontsRED4ext.rc"
+    )
     target_compile_features(NCREC_RED4ext PRIVATE cxx_std_20)
-    target_link_libraries(NCREC_RED4ext PRIVATE RED4ext::SDK ncrec_core)
+    target_link_libraries(NCREC_RED4ext PRIVATE
+        RED4ext::SDK ncrec_red4ext_dx12_probe ncrec_fullscreen_editor
+    )
     target_compile_definitions(NCREC_RED4ext PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
     set_target_properties(NCREC_RED4ext PROPERTIES
         PREFIX ""

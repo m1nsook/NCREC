@@ -1,0 +1,10 @@
+; NCREC RED4ext — optional render-only fullscreen preview
+; Copy/rename this file to NCREC.ini in red4ext/plugins/NCREC/
+; Requires Cyberpunk 2.50 and a game-compatible RED4ext loader.
+;
+; WARNING: This still hooks DirectX. Test only at the main menu or pause
+; screen. The fullscreen preview is NOT INTERACTIVE. F10 toggles it.
+; NCREC deliberately does not capture mouse/keyboard or pause the game.
+; To recover, delete/rename NCREC.ini or set PassiveFullscreen=0.
+[Experimental]
+PassiveFullscreen=1

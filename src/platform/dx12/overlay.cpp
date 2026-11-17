@@ -12,6 +12,7 @@
 #include <array>
 #include <atomic>
 #include <algorithm>
+#include <cfloat>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -67,6 +68,10 @@ render_callback_t        g_render_callback = nullptr;
 font_config_callback_t   g_font_config_callback = nullptr;
 HMODULE                  g_dxgi_handle = nullptr;
 std::atomic<UINT>       g_toggle_key{VK_OEM_MINUS};
+// Passive preview never subclasses the game window, modifies mouse clipping,
+// captures RawInput or consumes keyboard/system messages.
+std::atomic_bool        g_passive_mode{false};
+bool                    g_probe_toggle_down = false;
 // Key capture is delivered from the game's WndProc to the render/UI thread.
 // No additional Windows window or global hotkey registration is needed.
 std::atomic_bool        g_capture_key{false};
@@ -91,7 +96,13 @@ HMODULE get_system_dxgi() {
     if (GetSystemDirectoryA(buf.data(), (UINT)buf.size()) == 0)
         return nullptr;
     auto path = std::filesystem::path{buf.data()} / "dxgi.dll";
-    return GetModuleHandleA(path.string().c_str());
+    HMODULE dxgi = GetModuleHandleA(path.string().c_str());
+    if (!dxgi) {
+        // RED4ext may load before Cyberpunk creates its first DXGI factory.
+        // Load only the genuine system library, never a game-directory DLL.
+        dxgi = LoadLibraryExW(L"dxgi.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    }
+    return dxgi;
 }
 
 bool is_inside_dxgi(void* addr) {
@@ -318,8 +329,9 @@ HRESULT STDMETHODCALLTYPE hook_present(IDXGISwapChain3* self, UINT SyncInterval,
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
-        io.MouseDrawCursor = true;
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        io.MouseDrawCursor = !g_passive_mode.load(std::memory_order_acquire);
+        if (!g_passive_mode.load(std::memory_order_acquire))
+            io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
         if (g_font_config_callback)
             g_font_config_callback();
@@ -401,13 +413,27 @@ HRESULT STDMETHODCALLTYPE hook_present(IDXGISwapChain3* self, UINT SyncInterval,
         io.Fonts->Build();
         ImGui_ImplDX12_CreateDeviceObjects();
 
-        g_orig_wnd_proc = (WNDPROC)SetWindowLongPtrW(g_state.hwnd, GWLP_WNDPROC, (LONG_PTR)hook_wnd_proc);
+        if (!g_passive_mode.load(std::memory_order_acquire)) {
+            g_orig_wnd_proc = (WNDPROC)SetWindowLongPtrW(
+                g_state.hwnd, GWLP_WNDPROC, (LONG_PTR)hook_wnd_proc);
+        }
 
         g_state.initialized = true;
         LOG(" --- DX12 ImGui initialized successfully");
     }
 
-    synchronize_cursor_clip();
+    if (g_passive_mode.load(std::memory_order_acquire)) {
+        // F10 is a one-key display toggle. Never consume it: the game owns
+        // its keyboard. Do not react to keys while Cyberpunk is unfocused.
+        const bool focused = GetForegroundWindow() == g_state.hwnd;
+        const bool pressed = focused && (GetAsyncKeyState(VK_F10) & 0x8000) != 0;
+        if (pressed && !g_probe_toggle_down)
+            g_visible.store(!g_visible.load(std::memory_order_acquire),
+                            std::memory_order_release);
+        g_probe_toggle_down = pressed;
+    } else {
+        synchronize_cursor_clip();
+    }
 
     // Skip rendering during resize to avoid race conditions
     if (g_state.is_resizing)
@@ -424,7 +450,16 @@ HRESULT STDMETHODCALLTYPE hook_present(IDXGISwapChain3* self, UINT SyncInterval,
 
         ImGui_ImplDX12_NewFrame();
         ImGui_ImplWin32_NewFrame();
-        update_imgui_raw_cursor();
+        if (!g_passive_mode.load(std::memory_order_acquire)) {
+            update_imgui_raw_cursor();
+        } else {
+            // Read-only view: no ImGui button can act on a click that still
+            // belongs to the game. Never forge input or mouse ownership.
+            ImGuiIO& io = ImGui::GetIO();
+            io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+            for (int button = 0; button < 5; ++button)
+                io.AddMouseButtonEvent(button, false);
+        }
         ImGui::NewFrame();
 
         g_render_callback(self, SyncInterval, Flags);
@@ -642,6 +677,10 @@ void set_render_callback(render_callback_t render_callback) {
 
 void set_font_config_callback(font_config_callback_t callback) {
     g_font_config_callback = callback;
+}
+
+void set_passive_mode(bool passive) {
+    g_passive_mode.store(passive, std::memory_order_release);
 }
 
 void set_toggle_key(UINT vk_code) {
