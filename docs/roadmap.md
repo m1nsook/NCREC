@@ -33,6 +33,9 @@
 - [x] RED4ext API-v1 bootstrap as separate native DLL target
 - [x] Fullscreen workspace geometry from demo.html, portable and testable
 - [x] Validate RED4ext host in Cyberpunk 2.50: DLL load/unload logs, menu/gameplay input and clean exit (user-tested 2026-11-17)
+- [x] Give the passive renderer a configurable single-key toggle (F8 default), avoiding CET's F10
+- [ ] **Restore the ASI's first-launch keybinding wizard** in the interactive RED4ext editor: choose a single key, press Enter or click Save, persist, and close
+- [ ] Keep keybinding wizard keyboard-accessible; reject reserved/system keys; preserve Alt+F4 and Escape and existing bindings
 - [ ] Safe game-aware input/cursor ownership and editor activation lifecycle
 - [ ] Reliable fullscreen DX12 UI replacing the floating editor, without nested scrollbars
 - [ ] Version-aware active game camera read/override/restore
