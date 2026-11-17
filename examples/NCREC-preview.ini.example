@@ -3,8 +3,13 @@
 ; Requires Cyberpunk 2.50 and a game-compatible RED4ext loader.
 ;
 ; WARNING: This still hooks DirectX. Test only at the main menu or pause
-; screen. The fullscreen preview is NOT INTERACTIVE. F10 toggles it.
+; screen. The fullscreen preview is NOT INTERACTIVE. F8 toggles it by default.
+; CET can keep its separate F10 binding.
+; To choose another one-key binding, edit ToggleKey below.
+; Supported: F6, F7, F8, F9, F10, F11, F12,
+; Insert, Home, End, PageUp, PageDown.
 ; NCREC deliberately does not capture mouse/keyboard or pause the game.
 ; To recover, delete/rename NCREC.ini or set PassiveFullscreen=0.
 [Experimental]
 PassiveFullscreen=1
+ToggleKey=F8

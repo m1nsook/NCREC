@@ -110,10 +110,11 @@ For a rendering-only test:
 2. Copy/rename `red4ext/plugins/NCREC/NCREC-preview.ini.example` to
    `red4ext/plugins/NCREC/NCREC.ini`.
 3. Open Cyberpunk 2077 **2.50** and stay at the main menu or pause screen.
-4. Press **F10** once to show/hide the fullscreen app shell.
+4. Press **F8** once to show/hide the fullscreen app shell
+   (or your configured `ToggleKey`).
 5. Verify screen coverage, panel sizes and that the scene behind the app
    continues to render without flicker or stutters.
-6. Verify F10 hides the app and **Alt+F4 still exits**. If the game becomes
+6. Verify F8 hides the app and **Alt+F4 still exits**. If the game becomes
    unstable, remove/rename the NCREC.ini and restart. The default DLL then
    returns to loader-only mode.
 
@@ -123,7 +124,10 @@ For a rendering-only test:
 - does **not** pause, freeze or take camera control;
 - ignores all mouse interaction in ImGui to avoid duplicate clicks that
   might operate the game behind the preview;
-- can be toggled with F10 (never consumed from the game);
+- can be toggled with F8 by default (never consumed from the game);
+- uses `[Experimental] ToggleKey=F8` in `NCREC.ini` and supports
+  F6-F12, Insert, Home, End, PageUp and PageDown as single-key choices;
+- does not force a rebinding of CET (which can keep F10);
 - uses the same still-experimental DXGI hook family as the old ASI, now
   gated by NCREC.ini and game runtime v2.50;
 - can conflict with CET, ReShade or other overlays until tested.
