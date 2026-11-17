@@ -1,0 +1,4 @@
+// Font data is compiled into NCREC.asi as Win32 resources.
+// IDs must match the values in GameOverlay.cpp.
+101 RCDATA "@NCREC_INTER_RESOURCE@"
+102 RCDATA "@NCREC_MONO_RESOURCE@"

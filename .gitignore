@@ -1,0 +1,16 @@
+# Build outputs and IDE files
+/build/
+/out/
+/.vs/
+.vscode/
+CMakeUserPresets.json
+*.user
+*.suo
+*.pdb
+*.obj
+*.asi
+*.dll
+
+# Runtime state
+NCREC.log
+imgui.ini
