@@ -37,5 +37,8 @@
 - [ ] **Restore the ASI's first-launch keybinding wizard** in the interactive RED4ext editor: choose a single key, press Enter or click Save, persist, and close
 - [ ] Keep keybinding wizard keyboard-accessible; reject reserved/system keys; preserve Alt+F4 and Escape and existing bindings
 - [ ] Safe game-aware input/cursor ownership and editor activation lifecycle
+- [x] Passive fullscreen DX12 workspace visibly renders over Cyberpunk 2.50 (user screenshot, 2026-11-17)
+- [ ] **Interactive native mouse/cursor ownership**: request game cursor, route input to ImGui, restore game input on close/focus loss/unload
+- [ ] Fullscreen editor interactive validation (clickable inspector, keyboard, F8 hide, CET coexistence)
 - [ ] Reliable fullscreen DX12 UI replacing the floating editor, without nested scrollbars
 - [ ] Version-aware active game camera read/override/restore

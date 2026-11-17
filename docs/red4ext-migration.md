@@ -98,7 +98,7 @@ See [test report](test-reports/2026-11-17-red4ext-bootstrap.md).
 
 The DLL host is not proof that the in-game editor or camera already works.
 
-## Stage 2: opt-in passive fullscreen rendering probe (UNVALIDATED IN GAME)
+## Stage 2: opt-in passive fullscreen rendering probe (VISUAL RENDERING CONFIRMED; INTERACTIVITY NOT ENABLED)
 
 The C++ fullscreen interface from `design/demo.html` can now be drawn
 through the existing D3D12 swapchain **only if the user opts in**. The default
@@ -135,3 +135,31 @@ For a rendering-only test:
 This **must not** be enabled by default before an in-game stability report.
 The earlier ASI input trap means the safest next tests are **render-only**
 and **menu-first**, followed by validated engine-aware cursor ownership.
+
+## Passive fullscreen screenshot — observed behavior
+
+On 2026-11-17, the project owner ran the RED4ext development build and
+supplied an in-game screenshot of NCREC filling the screen. The workspace
+contains the expected top menu, project list, camera preview placeholder,
+inspector, transport, timeline and status bar.
+
+**Confirmed:** rendering of the fullscreen app shell in Cyberpunk.
+
+**Not confirmed:** F8 hide, active gameplay stability, Alt+F4 for this
+specific rendering build, camera control, or native editor input.
+
+**Expected limitation reported by owner:** the mouse is unavailable for
+NCREC interaction because `PassiveFullscreen` intentionally keeps game input
+ownership and suppresses mouse events in ImGui. This is **not yet a
+functional UI**; no current configuration can make it clickable safely.
+
+The next implementation must acquire and release the game's cursor like a
+native editor, rather than using the old ASI WndProc interception alone.
+CET's `InputSystemWin32Base::ForceCursor` is a research reference for the
+required engine-owned cursor state; NCREC remains independent of CET.
+
+**Safety note:** the versioned RED4ext SDK's `UniversalRelocFunc` may
+terminate the game if an address hash cannot be resolved, so the input
+adapter must fail closed with an independently checked resolver and must not
+call unverified engine functions during bootstrap. Default remains
+render-only until these gates have passed in-game.
