@@ -32,7 +32,7 @@
 
 - [x] RED4ext API-v1 bootstrap as separate native DLL target
 - [x] Fullscreen workspace geometry from demo.html, portable and testable
-- [ ] Validate RED4ext host in Cyberpunk 2.5 (logs and clean exit)
+- [x] Validate RED4ext host in Cyberpunk 2.50: DLL load/unload logs, menu/gameplay input and clean exit (user-tested 2026-11-17)
 - [ ] Safe game-aware input/cursor ownership and editor activation lifecycle
 - [ ] Reliable fullscreen DX12 UI replacing the floating editor, without nested scrollbars
 - [ ] Version-aware active game camera read/override/restore
