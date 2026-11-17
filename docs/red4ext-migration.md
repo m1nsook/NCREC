@@ -136,6 +136,21 @@ This **must not** be enabled by default before an in-game stability report.
 The earlier ASI input trap means the safest next tests are **render-only**
 and **menu-first**, followed by validated engine-aware cursor ownership.
 
+## Keyboard-only binding setup and input gate (not yet in-game tested)
+
+With the opt-in preview enabled and no valid `[Hotkeys] ToggleVK`,
+the first-launch wizard opens automatically. Choose F6–F9, F11–F12,
+Insert, Home, End, PageUp or PageDown; Enter saves, Esc hides, F8
+reopens. F10 remains with CET. The game also receives these keys.
+The wizard and fullscreen shell remain **non-interactive with mouse**.
+
+The unit-tested `EditorInputGate` requires a real engine grant before
+input can be treated as owned; it releases on focus loss/hide/shutdown.
+No game adapter is connected. The pinned SDK is older than current
+Cyberpunk 2.50 engine layouts, and SDK relocators can terminate the game
+on unresolved addresses. Do not use a blind CET ForceCursor call or
+re-enable the ASI WndProc trap.
+
 ## Passive fullscreen screenshot — observed behavior
 
 On 2026-11-17, the project owner ran the RED4ext development build and

@@ -15,6 +15,9 @@ void set_font_config_callback(font_config_callback_t callback);
 // game input; the user-configured key toggles visibility while focused.
 void set_passive_mode(bool passive);
 void set_toggle_key(UINT vk_code = VK_OEM_MINUS);
+// Prevent the passive F8 toggle from dismissing a keyboard-only setup step.
+// This never acquires input or modifies the game's window procedure.
+void set_toggle_suspended(bool suspended);
 // Non-blocking one-key capture for the first-run wizard and Settings.
 // Return 0 while waiting; Escape and reserved keys are reported to UI.
 void begin_key_capture();
